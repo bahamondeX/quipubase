@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "quipubase"
+version = "0.0.1"
+description = "A Document Database based on `json_schema` on top of RocksDB with VectorStore features."
+authors = ["bahamondex <obahamondemunoz@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+orjson = "^3.10.16"
+rocksdict = "^0.3.25"
+pydantic = "^2.11.3"
+fastapi = "^0.115.12"
+faiss-cpu = "^1.10.0"
+numpy = "^2.2.4"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
