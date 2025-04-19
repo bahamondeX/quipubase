@@ -69,3 +69,6 @@ bower_components/
 # Database
 *.sqlite3
 *.db
+.ruff_cache
+./CLAUDE.md
+*.lock

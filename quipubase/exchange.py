@@ -1,7 +1,6 @@
 import typing as tp
 import time
 from typing import AsyncGenerator, Optional, Type
-import typing_extensions as tpe
 import asyncio
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4

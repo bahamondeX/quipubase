@@ -1,45 +1,60 @@
-from __future__ import annotations
-import typing as tp
+# In typedefs.py
+import uuid
+from typing import Any, Dict, Literal, Optional, TypeAlias
 from typing_extensions import TypedDict
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-Property = tp.Dict[str, tp.Any]
-QuipuActions = tp.Literal["create", "update", "delete", "read", "query", "stop"]
+
+# First define the JsonSchema as a regular Pydantic model (not TypedDict)
+class JsonSchemaModel(BaseModel):
+    """JSON Schema representation"""
+
+    title: str = Field(...)
+    description: str = Field(...)
+    type: Literal[
+        "object", "array", "string", "number", "integer", "boolean", "null"
+    ] = Field(default="object")
+    properties: Dict[str, Any] = Field(..., alias="properties")
+    required: Optional[list[str]] = Field(default=None, alias="required")
+    enum: Optional[list[Any]] = Field(default=None, alias="enum")
+    items: Optional[Any] = Field(default=None, alias="items")
+
+
+# Keep TypedDict version if needed elsewhere
+class JsonSchema(TypedDict):
+    """JSON Schema representation"""
+
+    title: str
+    description: str
+    type: Literal["object", "array", "string", "number", "integer", "boolean", "null"]
+    properties: Dict[str, Any]
+    enum: Optional[list[Any]]
+    items: Optional[Any]
+
+
+# Define QuipuActions as a type alias for a set of string literals
+QuipuActions: TypeAlias = Literal["create", "read", "update", "delete", "query", "stop"]
 
 
 class CollectionRequest(BaseModel):
-    definition: JsonSchema
+    definition: JsonSchemaModel  # Use the Pydantic model version
     name: str
 
 
 class CollectionResponse(BaseModel):
     id: str
-    definition: JsonSchema
-
-
-class JsonSchema(TypedDict, total=False):
-    """JSON Schema representation"""
-
-    title: str
-    description: str
-    type: tp.Literal[
-        "object", "array", "string", "number", "integer", "boolean", "null"
-    ]
-
-    properties: Property
-    required: list[str]
-    enum: list[tp.Union[int, float, str]]
-    items: list[tp.Any]  # Avoiding recursive reference to JsonSchema
-    additionalProperties: bool
-    patternProperties: Property
-    definitions: Property
-    allOf: list[tp.Any]  # Avoiding recursive reference to JsonSchema
-    oneOf: list[tp.Any]  # Avoiding recursive reference to JsonSchema
+    definition: JsonSchemaModel  # Use the Pydantic model version
 
 
 class CollectionType(BaseModel):
     id: str
-    definition: JsonSchema
+    definition: JsonSchemaModel  # Use the Pydantic model version
 
 
-# The model_rebuild call will be moved to __init__.py to ensure all types are defined first
+class PubRequest(BaseModel):
+    """Request model for publishing events"""
+
+    action: QuipuActions
+    id: Optional[uuid.UUID] = None
+    value: Optional[Dict[str, Any]] = None
+    sub: str = Field(default="public")

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from uuid import UUID, uuid4
 from pathlib import Path
 from .utils import get_logger, handle, encrypt
-from .typedefs import JsonSchema
+from .typedefs import JsonSchemaModel
 
 T = TypeVar("T", bound="Collection")
 
@@ -30,14 +30,14 @@ class Collection(BaseModel):
         )
 
     @classmethod
-    def col_json_schema(cls) -> JsonSchema:
+    def col_json_schema(cls) -> JsonSchemaModel:
         """Create a schema for this collection"""
         data = cls.model_json_schema()
         path = Path(os.path.join(cls.col_path(), "schema.json"))
         if not path.exists():
             os.makedirs(os.path.dirname(path), exist_ok=True)
             path.write_text(json.dumps(data, indent=4))
-        return JsonSchema(**data)
+        return JsonSchemaModel(**data)
 
     @classmethod
     def cpu_count(cls):
@@ -162,4 +162,5 @@ class Collection(BaseModel):
             logger.error(e)
             return 1
 
-# The model_rebuild call will be moved to __init__.py to ensure all types are defined first
+
+Collection.model_rebuild()

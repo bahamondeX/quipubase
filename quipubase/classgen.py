@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, create_model  # type: ignore
 
 from .const import MAPPING
 from .collection import Collection
-from .typedefs import JsonSchema, Property
+from .typedefs import JsonSchema, JsonSchemaModel
 
 
 def sanitize(text: str):
@@ -48,28 +48,30 @@ def cast_to_type(schema: JsonSchema) -> Any:
     Cast the schema to the corresponding Python type.
     """
     if "enum" in schema:
-        enum_values = tuple(schema["enum"])
-        if all(isinstance(value, type(enum_values[0])) for value in enum_values):
+        enum_values = tuple(schema.get("enum") or [])
+        if enum_values and all(
+            isinstance(value, type(enum_values[0])) for value in enum_values
+        ):
             return Literal[enum_values]
     elif schema.get("type") == "object":
         if schema.get("properties"):
             s = JsonSchema(**schema)
-            return create_class(schema=s)
+            return create_class(schema=JsonSchemaModel.model_validate(s))
     elif schema.get("type") == "array":
         assert "items" in schema, "Missing 'items' in array schema"
-        return List[cast_to_type(schema["items"][0])]
+        return List[cast_to_type((schema.get("items") or {}))]
     return MAPPING.get(schema.get("type", "string"), str)
 
 
-def create_class(*, schema: JsonSchema):
+def create_class(*, schema: JsonSchemaModel):
     """
     Create a class based on the schema.
     """
-    name = schema.get("title") or schema.get("name") or "Model"
-    properties = schema["properties"]
-    attributes: Property = {}
+    name = schema.title
+    properties = schema.properties
+    attributes: dict[str, Any] = {}
     for key, value in properties.items():
-        if key in schema.get("required", ()):
+        if schema.required and key in schema.required:
             attributes[key] = (cast_to_type(value), ...)
         else:
             attributes[key] = (
@@ -77,5 +79,7 @@ def create_class(*, schema: JsonSchema):
                 Field(default=None),
             )
     return create_model(
-        f"{name}::{abs(hash(json.dumps(schema)))}", __base__=Collection, **attributes
+        f"{name}::{abs(hash(schema.model_dump_json()))}",
+        __base__=Collection,
+        **attributes,
     )
