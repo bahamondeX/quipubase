@@ -1,21 +1,24 @@
-from typing import Any, Optional, Type, TypeVar, Iterator
-from rocksdict import Rdict, Options, SliceTransform, PlainTableFactoryOptions
-import os
-import orjson
 import json
+import os
 import shutil
-from pydantic import BaseModel, Field
-from uuid import UUID, uuid4
 from pathlib import Path
-from .utils import get_logger, encrypt
+from typing import Any, Iterator, Optional, Type, TypeVar
+from uuid import UUID, uuid4
+
+import orjson
+from pydantic import BaseModel, Field
+from rocksdict import Options, PlainTableFactoryOptions, Rdict, SliceTransform
+
 from .typedefs import JsonSchemaModel
+from .utils import encrypt, get_logger
 
 T = TypeVar("T", bound="Collection")
 
 logger = get_logger("[Collections]")
 
+
 class Collection(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
+    id: Optional[UUID] = Field(default_factory=uuid4)
 
     def __repr__(self):
         return self.model_dump_json(indent=4)
@@ -50,6 +53,29 @@ class Collection(BaseModel):
         return os.cpu_count() or 1
 
     @classmethod
+    def tool_definition(cls):
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.__name__,
+                "description": cls.__doc__ or "",
+                "parameters": cls.model_json_schema().get("properties", {}),
+            },
+        }
+
+    @classmethod
+    def tool_param(cls):
+        return dict(
+            input_schema=cls.model_json_schema(),
+            name=cls.__name__,
+            description=cls.__doc__ or "",
+            cache_control={"type": "ephemeral"},
+        )
+
+    @classmethod
+    def tool_mistral(cls): ...
+
+    @classmethod
     def options(cls) -> Options:
         """Configure RocksDB options for optimal performance."""
         opt = Options()
@@ -75,7 +101,11 @@ class Collection(BaseModel):
 
     def create(self) -> None:
         """Save/update the record in the database."""
+        data = self.model_dump_json().encode("utf-8")
         self.col().put(self.id.bytes, self.model_dump_json().encode("utf-8"))
+        assert (
+            self.col().get(self.id.bytes) == data
+        ), f"Failed to persist record {self.id}"
 
     @classmethod
     def delete(cls, *, id: UUID) -> bool:
@@ -87,7 +117,9 @@ class Collection(BaseModel):
             return False
 
     @classmethod
-    def find(cls: Type[T], *, limit: int = 100, offset: int = 0, **kwargs: Any) -> Iterator[T]:
+    def find(
+        cls: Type[T], *, limit: int = 100, offset: int = 0, **kwargs: Any
+    ) -> Iterator[T]:
         """
         Find records matching the given criteria.
 
@@ -147,6 +179,14 @@ class Collection(BaseModel):
         except Exception as e:
             logger.error(e)
             return 1
+
+    @classmethod
+    def init(cls):
+        """Initialize the collection."""
+        if not os.path.exists(cls.col_path()):
+            os.makedirs(cls.col_path())
+            path = Path(cls.col_path()) / "README.md"
+            path.write_text(cls.__doc__ or "")
 
 
 Collection.model_rebuild()

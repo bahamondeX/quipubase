@@ -1,8 +1,9 @@
 # In typedefs.py
 import uuid
 from typing import Any, Dict, Literal, Optional, TypeAlias
-from typing_extensions import TypedDict
+
 from pydantic import BaseModel, Field
+from typing_extensions import TypedDict
 
 
 # First define the JsonSchema as a regular Pydantic model (not TypedDict)
@@ -10,7 +11,7 @@ class JsonSchemaModel(BaseModel):
     """JSON Schema representation"""
 
     title: str = Field(...)
-    description: str = Field(...)
+    description: Optional[str] = Field(default=None)
     type: Literal[
         "object", "array", "string", "number", "integer", "boolean", "null"
     ] = Field(default="object")
@@ -25,7 +26,7 @@ class JsonSchema(TypedDict):
     """JSON Schema representation"""
 
     title: str
-    description: str
+    description: Optional[str]
     type: Literal["object", "array", "string", "number", "integer", "boolean", "null"]
     properties: Dict[str, Any]
     enum: Optional[list[Any]]
@@ -58,3 +59,9 @@ class PubRequest(BaseModel):
     id: Optional[uuid.UUID] = None
     value: Optional[Dict[str, Any]] = None
     sub: str = Field(default="public")
+
+
+class ActionRequest(BaseModel):
+    event: QuipuActions = Field(default="query")
+    id: Optional[uuid.UUID] = Field(default=None)
+    data: Optional[Dict[str, Any]] = Field(default=None)

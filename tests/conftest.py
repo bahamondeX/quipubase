@@ -4,17 +4,18 @@ Configuration file for pytest fixtures.
 This file contains shared fixtures that can be used across multiple test files.
 """
 
-import pytest
-import shutil
 import asyncio
+import shutil
 from pathlib import Path
 from uuid import uuid4
+
+import pytest
 from fastapi.testclient import TestClient
 
 from quipubase import create_app
 from quipubase.collection import Collection
-from quipubase.state import StateManager
 from quipubase.exchange import Exchange
+from quipubase.state import StateManager
 
 
 @pytest.fixture

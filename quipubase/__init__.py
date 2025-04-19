@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from .collection import Collection
 from .typedefs import CollectionType, JsonSchemaModel
 
@@ -12,10 +13,11 @@ __all__ = ["CollectionType", "Collection", "create_app"]
 
 def create_app():
     # Import handlers here to avoid circular imports
+    from pydantic import BaseModel
+
     from .handlers import collections_router, pubsub_router
     from .handlers.collections import ActionRequest
     from .handlers.pubsub import PubActionResponse
-    from pydantic import BaseModel
 
     # Rebuild all models to resolve forward references
     for model in BaseModel.__subclasses__():

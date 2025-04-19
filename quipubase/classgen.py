@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 from pydantic import BaseModel, Field, create_model  # type: ignore
 
-from .const import MAPPING
 from .collection import Collection
+from .const import MAPPING
 from .typedefs import JsonSchema, JsonSchemaModel
 
 

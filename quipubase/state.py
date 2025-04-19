@@ -5,11 +5,11 @@ from typing import Any, Dict, Optional, Type, TypeVar
 
 from fastapi import HTTPException
 
-from .collection import Collection
-from .utils import get_logger, singleton
-from .exchange import Exchange
 from .classgen import create_class
+from .collection import Collection
+from .exchange import Exchange
 from .typedefs import JsonSchemaModel
+from .utils import get_logger, singleton
 
 logger = get_logger("[StateManager]")
 

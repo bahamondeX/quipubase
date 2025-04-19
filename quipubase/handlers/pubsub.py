@@ -1,90 +1,79 @@
 from __future__ import annotations
-from typing import TypeVar, Dict, Optional, Any, AsyncIterator
+
+from typing import Any, AsyncIterator, Dict
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
+from ..cache import PubSub
 from ..collection import Collection
-from ..utils import get_logger
+from ..event import Event
 from ..state import StateManager
-from ..exchange import Event
-from ..typedefs import PubRequest
+from ..typedefs import ActionRequest, QuipuActions
+from ..utils import get_logger
 
 logger = get_logger("[PubSubRouter]")
 
-T = TypeVar("T", bound=Collection)
-
-
-class PubActionResponse(BaseModel):
-    """Response model for publish actions"""
-
-    success: bool
-    message: str
-    item: Optional[Dict[str, Any]] = None
-
 
 def pubsub_router() -> APIRouter:
-    """Factory function to create a pubsub router"""
-
     router = APIRouter(prefix="/pubsub", tags=["pubsub"])
     state_manager = StateManager()
 
-    @router.post("/{collection_id}/publish", response_model=PubActionResponse)
-    async def _(collection_id: str, req: PubRequest) -> PubActionResponse:
-        """Publish an event to a collection subscription"""
+    @router.post("/events/{collection_id}")
+    async def _(collection_id: str, req: ActionRequest) -> Dict[str, Any]:
+        klass = state_manager.get_collection(collection_id)
         try:
-            exchange = state_manager.get_exchange(collection_id)
+            pubsub = PubSub[klass]()
 
-            async for item in exchange.pub(
-                sub=req.sub,
-                event=req.action,
-                value=req.value,
-                id=req.id,
-            ):
-                # Return the first (and only) item
-                return PubActionResponse(
-                    success=True,
-                    message=f"Event {req.action} published successfully to {req.sub}",
-                    item=item.model_dump() if item else None,
-                )
+            if not isinstance(klass, Collection):
+                raise ValueError(f"Expected Collection, got {type(klass)}")
 
-            # If no items were yielded but no errors occurred
-            return PubActionResponse(
-                success=True,
-                message=f"Event {req.action} published successfully to {req.sub}",
-                item=None,
-            )
+            item = None
+            action: QuipuActions
+
+            if req.id is not None:
+                item = klass.retrieve(id=req.id)
+                if item is None:
+                    raise ValueError(f"Item with id {req.id} not found")
+
+                if req.data is not None:
+                    item.update(**req.data)
+                    action = "update"
+                else:
+                    item.delete(id=req.id)
+                    action = "delete"
+
+            elif req.data is not None:
+                item = klass.model_validate(req.data)
+                if item.id is not None:
+                    klass.update(id=item.id, **req.data)
+                    action = "update"
+                else:
+                    item.create()
+                    action = "create"
+            else:
+                raise ValueError("Both id and data are missing")
+            assert item is not None
+            event = Event[klass](event=action, item=item)
+            await pubsub.pub(collection_id, event)
+            return {
+                "collection": klass.col_path().split("/")[-1],
+                "id": item.id if item else None,
+            }
 
         except Exception as e:
-            logger.error(f"Error publishing event: {str(e)}")
-            raise HTTPException(
-                status_code=500, detail=f"Error publishing event: {str(e)}"
-            )
+            logger.error(f"Publish error: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
 
-    @router.get("/{collection_id}/subscribe")
-    async def _(
-        collection_id: str,
-        subscription: str = Query(default="public"),
-    ):
-        """Subscribe to a collection using Server-Sent Events (SSE)"""
+    @router.get("/events/{collection_id}")
+    async def _(collection_id: str, sub: str = Query(default="public")):
         try:
-            exchange = state_manager.get_exchange(collection_id)
+            klass = state_manager.get_collection(collection_id)
+            pubsub = PubSub[klass]()
 
             async def event_generator() -> AsyncIterator[str]:
-                try:
-                    async for item in exchange.sub(sub=subscription):
-                        # Create an event
-                        event = Event(
-                            event="update" if item.id else "create", data=item
-                        )
-                        yield event.to_sse()
-                except Exception as e:
-                    logger.error(f"Error in SSE stream: {str(e)}")
-                    # Send error event
-                    yield f"event: error\ndata: {str(e)}\n\n"
-                finally:
-                    # Ensure subscription is closed when done
-                    await exchange.close(sub=subscription)
+                async for event in pubsub.sub(channel=sub):
+                    yield f"data: {event.model_dump_json()}\n\n"
 
             return StreamingResponse(
                 event_generator(),
@@ -93,25 +82,7 @@ def pubsub_router() -> APIRouter:
             )
 
         except Exception as e:
-            logger.error(f"Error setting up SSE subscription: {str(e)}")
-            raise HTTPException(
-                status_code=500, detail=f"Error setting up SSE subscription: {str(e)}"
-            )
-
-    @router.post("/{collection_id}/close")
-    async def _(collection_id: str, subscription: Optional[str] = None):
-        """Close a specific subscription or all subscriptions for a collection"""
-        try:
-            exchange = state_manager.get_exchange(collection_id)
-            await exchange.close(sub=subscription)
-            return {
-                "success": True,
-                "message": f"Closed {'all subscriptions' if subscription is None else f'subscription {subscription}'} for collection {collection_id}",
-            }
-        except Exception as e:
-            logger.error(f"Error closing subscription: {str(e)}")
-            raise HTTPException(
-                status_code=500, detail=f"Error closing subscription: {str(e)}"
-            )
+            logger.error(f"SSE error: {e}")
+            raise HTTPException(status_code=500, detail=f"SSE error: {e}")
 
     return router

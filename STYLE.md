@@ -1,6 +1,7 @@
-# CLAUDE.md
+# Project Style Guide
+This document outlines the coding style and conventions for the project. Adhering to these guidelines will help maintain consistency and readability across the codebase.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Directory Structure
 
 ## Build Commands
 - Install: `make install`

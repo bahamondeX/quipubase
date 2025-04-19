@@ -2,10 +2,11 @@
 Tests for the Exchange class that handles PubSub functionality.
 """
 
-import pytest
 import asyncio
 
-from quipubase.exchange import Exchange, Event
+import pytest
+
+from quipubase.exchange import Event, Exchange
 from tests.conftest import TestModel
 
 
