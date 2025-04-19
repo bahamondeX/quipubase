@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from ..cache import PubSub
-from ..collection import Collection
 from ..event import Event
 from ..state import StateManager
 from ..typedefs import ActionRequest, QuipuActions
@@ -24,35 +23,38 @@ def pubsub_router() -> APIRouter:
         klass = state_manager.get_collection(collection_id)
         try:
             pubsub = PubSub[klass]()
-
-            if not isinstance(klass, Collection):
-                raise ValueError(f"Expected Collection, got {type(klass)}")
-
             item = None
             action: QuipuActions
 
+            # Verificar si la solicitud tiene un ID
             if req.id is not None:
                 item = klass.retrieve(id=req.id)
                 if item is None:
                     raise ValueError(f"Item with id {req.id} not found")
 
                 if req.data is not None:
+                    # Si hay datos, actualizamos el ítem existente
                     item.update(**req.data)
                     action = "update"
                 else:
+                    # Si no hay datos, eliminamos el ítem
                     item.delete(id=req.id)
                     action = "delete"
 
             elif req.data is not None:
+                # Si no hay ID, creamos un nuevo ítem si los datos están presentes
                 item = klass.model_validate(req.data)
                 if item.id is not None:
+                    # Si el ítem tiene un ID, actualizamos
                     klass.update(id=item.id, **req.data)
                     action = "update"
                 else:
+                    # Si no tiene ID, lo creamos
                     item.create()
                     action = "create"
             else:
                 raise ValueError("Both id and data are missing")
+
             assert item is not None
             event = Event[klass](event=action, item=item)
             await pubsub.pub(collection_id, event)
@@ -60,7 +62,6 @@ def pubsub_router() -> APIRouter:
                 "collection": klass.col_path().split("/")[-1],
                 "id": item.id if item else None,
             }
-
         except Exception as e:
             logger.error(f"Publish error: {e}")
             raise HTTPException(status_code=400, detail=str(e))

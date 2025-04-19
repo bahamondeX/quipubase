@@ -17,7 +17,6 @@ def create_app():
 
     from .handlers import collections_router, pubsub_router
     from .handlers.collections import ActionRequest
-    from .handlers.pubsub import PubActionResponse
 
     # Rebuild all models to resolve forward references
     for model in BaseModel.__subclasses__():
@@ -25,7 +24,6 @@ def create_app():
     Collection.model_rebuild()
     CollectionType.model_rebuild()
     ActionRequest.model_rebuild()
-    PubActionResponse.model_rebuild()
     JsonSchemaModel.model_rebuild()
     app = FastAPI()
     app.add_middleware(

@@ -1,13 +1,12 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Dict, Optional, Type, TypeVar
 
 from fastapi import HTTPException
 
 from .classgen import create_class
 from .collection import Collection
-from .exchange import Exchange
 from .typedefs import JsonSchemaModel
 from .utils import get_logger, singleton
 
@@ -21,7 +20,6 @@ class StateManager:
     """Singleton for managing collection classes and exchanges"""
 
     collections_cache: Dict[str, Type[Collection]]
-    exchanges_cache: Dict[str, Exchange[Any]]
 
     def __init__(
         self, collections_cache: Optional[Dict[str, Type[Collection]]] = None
@@ -53,16 +51,6 @@ class StateManager:
             raise HTTPException(
                 status_code=404, detail=f"Collection '{collection_id}' not found"
             )
-
-    def get_exchange(self, collection_id: str) -> Exchange[Any]:
-        """Get or create an exchange for a given collection ID"""
-        if collection_id not in self.exchanges_cache:
-            # Get the collection class first
-            collection_class = self.get_collection(collection_id)
-            # Create a new exchange
-            self.exchanges_cache[collection_id] = Exchange[collection_class]()
-
-        return self.exchanges_cache[collection_id]
 
     def get_json_schema(self, collection_id: str) -> JsonSchemaModel:
         """Get the JSON schema for a collection ID"""
@@ -112,8 +100,5 @@ class StateManager:
         if collection_id is not None:
             if collection_id in self.collections_cache:
                 del self.collections_cache[collection_id]
-            if collection_id in self.exchanges_cache:
-                del self.exchanges_cache[collection_id]
         else:
             self.collections_cache.clear()
-            self.exchanges_cache.clear()
