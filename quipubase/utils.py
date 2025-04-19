@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import typing as tp
 import json
 import logging
 import asyncio
@@ -55,6 +55,7 @@ def get_key(*, object: dict[str, Any], key: str) -> None:
 def chunker(seq: str, size: int):
     return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
+
 def get_logger(
     name: str | None = None,
     level: int = logging.DEBUG,
@@ -101,8 +102,10 @@ def exception_handler(
     """
 
     @wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
+            if asyncio.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
             return func(*args, **kwargs)
         except Exception as e:
             logger.error("%s: %s", e.__class__.__name__, e)
@@ -110,8 +113,9 @@ def exception_handler(
                 status_code=500,
                 detail=f"Internal Server Error: {e.__class__.__name__} => {e}",
             ) from e
+
     wrapper.__name__ = func.__name__
-    return wrapper
+    return tp.cast(Callable[P, T], wrapper)
 
 
 def timing_handler(
@@ -125,14 +129,17 @@ def timing_handler(
     """
 
     @wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         start = time.time()
+        if asyncio.iscoroutinefunction(func):
+            result = await func(*args, **kwargs)
         result = func(*args, **kwargs)
         end = time.time()
         logger.info("%s took %s seconds", func.__name__, end - start)
-        return result
+        return tp.cast(T, result)  # type: ignore
+
     wrapper.__name__ = func.__name__
-    return wrapper
+    return tp.cast(T, wrapper)  # type: ignore
 
 
 def retry_handler(
@@ -148,11 +155,15 @@ def retry_handler(
     """
 
     @wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         nonlocal delay
         for _ in range(retries):
             try:
-                return func(*args, **kwargs)
+                if asyncio.iscoroutinefunction(func):
+                    result = await func(*args, **kwargs)
+                else:
+                    result = func(*args, **kwargs)
+                return tp.cast(T, result)  # type: ignore
             except QuipubaseException as e:
                 logger.error("%s: %s", e.__class__.__name__, e)
                 time.sleep(delay)
@@ -161,13 +172,12 @@ def retry_handler(
         raise QuipubaseException(
             status_code=500, detail=f"Exhausted retries after {retries} attempts"
         )
+
     wrapper.__name__ = func.__name__
-    return wrapper
+    return tp.cast(T, wrapper)  # type: ignore
 
 
-def handle(
-    func: Callable[P, T], retries: int = 3, delay: int = 1
-) -> Callable[P, T]:
+def handle(func: Callable[P, T], retries: int = 3, delay: int = 1) -> Callable[P, T]:
     """
     Decorator to retry a function with exponential backoff and handle exceptions.
 
@@ -177,7 +187,7 @@ def handle(
     :return: Decorated function.
     """
     eb = partial(retry_handler, retries=retries, delay=delay)
-    return reduce(lambda f, g: g(f), [exception_handler, timing_handler, eb], func) # type: ignore
+    return reduce(lambda f, g: g(f), [exception_handler, timing_handler, eb], func)  # type: ignore
 
 
 def asyncify(func: Callable[P, T]) -> Callable[P, Coroutine[None, T, T]]:
@@ -201,10 +211,10 @@ def singleton(cls: Type[T]) -> Type[T]:
     Decorator that converts a class into a singleton.
 
     Args:
-                                                                                                                                    cls (Type[T]): The class to be converted into a singleton.
+                                                                                                                                                                                                                                                                    cls (Type[T]): The class to be converted into a singleton.
 
     Returns:
-                                                                                                                                    Type[T]: The singleton instance of the class.
+                                                                                                                                                                                                                                                                    Type[T]: The singleton instance of the class.
     """
     instances: dict[Type[T], T] = {}
 

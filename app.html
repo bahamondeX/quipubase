@@ -1,0 +1,18 @@
+<script>
+	const $ = (selector) => {
+		return document.querySelector(selector)
+	}
+
+	function listen() {
+		const el = $("#app")
+		const src = new EventSource("http://localhost:8000/events/923893e0cd32cacb69f4df4e8fcfd0c47a42d2ab8c35fdac4b94f12dd560daa5")
+		src.onmessage = function (e) {
+			el.appendChild(`<p>${e.data}</p>`)
+		}
+	}
+	listen()
+
+</script>
+
+<div id="app">
+</div>
