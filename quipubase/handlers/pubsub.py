@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, AsyncIterator, Dict
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ..cache import PubSub
@@ -67,19 +67,24 @@ def pubsub_router() -> APIRouter:
             raise HTTPException(status_code=400, detail=str(e))
 
     @router.get("/events/{collection_id}")
-    async def _(collection_id: str, sub: str = Query(default="public")):
+    async def _(collection_id: str):
         try:
             klass = state_manager.get_collection(collection_id)
             pubsub = PubSub[klass]()
 
             async def event_generator() -> AsyncIterator[str]:
-                async for event in pubsub.sub(channel=sub):
+                async for event in pubsub.sub(channel=collection_id):
                     yield f"data: {event.model_dump_json()}\n\n"
 
             return StreamingResponse(
                 event_generator(),
                 media_type="text/event-stream",
-                headers={"Cache-Control": "no-cache"},
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                    "Transfer-Encoding": "chunked",
+                },
             )
 
         except Exception as e:
