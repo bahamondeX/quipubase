@@ -35,19 +35,10 @@ def pubsub_router() -> APIRouter:
         try:
             exchange = state_manager.get_exchange(collection_id)
 
-            # Get collection class
-            col_class = state_manager.get_collection(collection_id)
-
-            # Validate value if provided
-            value = None
-            if req.value:
-                value = col_class.model_validate(req.value)
-
-            # Execute publish operation
             async for item in exchange.pub(
                 sub=req.sub,
                 event=req.action,
-                value=value,
+                value=req.value,
                 id=req.id,
             ):
                 # Return the first (and only) item

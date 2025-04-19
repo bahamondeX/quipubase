@@ -7,7 +7,7 @@ import shutil
 from pydantic import BaseModel, Field
 from uuid import UUID, uuid4
 from pathlib import Path
-from .utils import get_logger, handle, encrypt
+from .utils import get_logger, encrypt
 from .typedefs import JsonSchemaModel
 
 T = TypeVar("T", bound="Collection")
@@ -16,6 +16,12 @@ logger = get_logger("[Collections]")
 
 class Collection(BaseModel):
     id: UUID = Field(default_factory=uuid4)
+
+    def __repr__(self):
+        return self.model_dump_json(indent=4)
+
+    def __str__(self):
+        return self.__repr__()
 
     @classmethod
     def col(cls) -> Rdict:
@@ -59,7 +65,6 @@ class Collection(BaseModel):
         return opt
 
     @classmethod
-    @handle
     def retrieve(cls: Type[T], *, id: UUID) -> Optional[T]:
         """Retrieve a single record by ID."""
         raw_data = cls.col().get(id.bytes)
@@ -68,13 +73,11 @@ class Collection(BaseModel):
         json_data = orjson.loads(raw_data)
         return cls.model_validate(json_data)
 
-    @handle
     def create(self) -> None:
         """Save/update the record in the database."""
         self.col().put(self.id.bytes, self.model_dump_json().encode("utf-8"))
 
     @classmethod
-    @handle
     def delete(cls, *, id: UUID) -> bool:
         """Delete a record by ID."""
         try:
@@ -84,56 +87,39 @@ class Collection(BaseModel):
             return False
 
     @classmethod
-    @handle
     def find(cls: Type[T], *, limit: int = 100, offset: int = 0, **kwargs: Any) -> Iterator[T]:
         """
-		Find records matching the given criteria.
-		
-		Yields:
-			Model instances matching the criteria
-		
-		Args:
-			limit: Maximum number of records to return
-			offset: Number of matching records to skip
-			**kwargs: Field equality filters
-		"""
-        # Simplify implementation to use dictionary items directly
+        Find records matching the given criteria.
+
+        Args:
+            limit: Max records to return
+            offset: Records to skip
+            **kwargs: Field filters
+
+        Yields:
+            Matching model instances
+        """
         db = cls.col()
         riter = db.iter()
         riter.seek_to_first()
-        while riter.valid() and offset:
-            offset -= 1
+
+        # Saltar offset inicial
+        while riter.valid() and offset > 0:
             riter.next()
-        while riter.valid() and limit:
-            key = riter.key()
-            value = riter.value()
+            offset -= 1
+
+        # Iterar hasta cumplir el límite
+        while riter.valid() and limit > 0:
             try:
-                data = orjson.loads(value)
-                # Check if the item matches all criteria
-                matches = True
-                for k, v in kwargs.items():
-                    if k not in data or data[k] != v:
-                        matches = False
-                        break
-                if matches:
-                    # Convert UUID bytes back to UUID object for the id field
-                    if isinstance(key, bytes) and len(key) == 16:
-                        id_obj = UUID(bytes=key)
-                    else:
-                        id_obj = key
-                    # Create model instance including the id
-                    instance = cls.model_validate({"id": id_obj, **data})
-                    yield instance
+                data = orjson.loads(riter.value())
+                if all(data.get(k) == v for k, v in kwargs.items() if k != "id"):
+                    yield cls.model_validate(data)
                     limit -= 1
-                riter.next()
             except Exception as e:
-                # Skip invalid entries
-                logger.error(e)
-                continue	# Skip invalid entries
-        return None
+                logger.error(f"Error parsing record: {e}")
+            riter.next()  # Asegurar avance siempre
 
     @classmethod
-    @handle
     def update(cls: Type[T], *, id: UUID, **kwargs: Any) -> Optional[T]:
         """Update specific fields of a record by ID."""
         # Get the current record
