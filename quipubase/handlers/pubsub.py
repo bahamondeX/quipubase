@@ -41,10 +41,10 @@ def pubsub_router() -> APIRouter:
                     item.delete(id=req.id)
                     action = "delete"
 
-            elif req.data is not None:
+            elif req.data is not None and req.event in ("create", "update"):
                 # Si no hay ID, creamos un nuevo ítem si los datos están presentes
                 item = klass.model_validate(req.data)
-                if item.id is not None:
+                if item.id is not None and req.event == "update":
                     # Si el ítem tiene un ID, actualizamos
                     klass.update(id=item.id, **req.data)
                     action = "update"
