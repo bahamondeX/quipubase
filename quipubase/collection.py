@@ -93,7 +93,7 @@ class Collection(BaseModel):
         return os.path.join(
             home_dir, ".data", cls.col_id()
         )
-        
+
     @classmethod
     def col_id(cls):
         return encrypt(json.dumps(cls.model_json_schema()))
@@ -105,7 +105,7 @@ class Collection(BaseModel):
         path = Path(os.path.join(cls.col_path(), "schema.json"))
         if not path.exists():
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            path.write_text(json.dumps(data, indent=4), encoding="utf-8")
+            path.write_text(json.dumps(data, indent=4))
         return JsonSchemaModel(**data)
 
     @classmethod

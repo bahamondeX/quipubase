@@ -49,7 +49,7 @@ class StateManager:
                     )
 
                 try:
-                    schema_data = json.loads(schema_path.read_text(), encoding="utf-8")
+                    schema_data = json.loads(schema_path.read_text())
                     return JsonSchemaModel(**schema_data)
                 except Exception as e:
                     logger.error(
@@ -78,7 +78,7 @@ class StateManager:
                 col_id = Path(directory).as_posix().split("/")[-1]
                 klass = self._get_collection(col_id)
                 yield {"name":klass.__name__, "id":col_id}
-                
+
     def retrieve_collection(self, *, col_id:str):
         """Retrieve a collection class by ID"""
         try:
