@@ -22,7 +22,6 @@ def create_app():
     for model in BaseModel.__subclasses__():
         model.model_rebuild()
     Collection.model_rebuild()
-    CollectionType.model_rebuild()
     ActionRequest.model_rebuild()
     JsonSchemaModel.model_rebuild()
     app = FastAPI(

@@ -3,7 +3,7 @@ import uuid
 from typing import Any, Dict, Literal, Optional, TypeAlias
 
 from pydantic import BaseModel, Field
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, NotRequired
 
 
 # First define the JsonSchema as a regular Pydantic model (not TypedDict)
@@ -26,11 +26,11 @@ class JsonSchema(TypedDict):
     """JSON Schema representation"""
 
     title: str
-    description: Optional[str]
+    description: NotRequired[str]
     type: Literal["object", "array", "string", "number", "integer", "boolean", "null"]
     properties: Dict[str, Any]
-    enum: Optional[list[Any]]
-    items: Optional[Any]
+    enum: NotRequired[list[Any]]
+    items: NotRequired[Any]
 
 
 # Define QuipuActions as a type alias for a set of string literals

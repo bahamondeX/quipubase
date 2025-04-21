@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 
 from ..cache import PubSub
 from ..event import Event
-from ..state import StateManager
+from ..manager import StateManager
 from ..typedefs import ActionRequest, QuipuActions
 from ..utils import get_logger
 
@@ -59,7 +59,7 @@ def pubsub_router() -> APIRouter:
             event = Event[klass](event=action, data=item)
             await pubsub.pub(collection_id, event)
             return {
-                "collection": klass.col_path().split("/")[-1],
+                "collection": klass.col_id(),
                 "id": item.id if item else None,
             }
         except Exception as e:

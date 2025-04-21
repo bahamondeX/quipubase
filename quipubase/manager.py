@@ -102,3 +102,15 @@ class StateManager:
                 status_code=500,
                 detail=f"Failed to delete collection '{col_id}': {str(e)}",
             )
+
+    def create_collection(self, *, data:JsonSchemaModel) -> CollectionType:
+        """Create a new collection"""
+        try:
+            klass = create_class(schema=data)
+            return {"name":klass.__name__, "id":klass.col_id(), "schema":JsonSchema(**klass.col_json_schema().model_dump())}
+        except Exception as e:
+            logger.error(f"Failed to create collection: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to create collection: {str(e)}",
+            )

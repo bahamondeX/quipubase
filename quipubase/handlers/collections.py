@@ -5,9 +5,8 @@ from typing import Dict
 
 from fastapi import APIRouter, HTTPException
 
-from ..classgen import create_class
 from ..collection import Collection
-from ..typedefs import ActionRequest, CollectionType, JsonSchemaModel,JsonSchema
+from ..typedefs import ActionRequest, JsonSchemaModel
 from ..utils import get_logger
 from ..manager import StateManager
 
@@ -23,15 +22,10 @@ def collections_router() -> APIRouter:
     @router.post("")
     async def _(
         data: JsonSchemaModel,
-    ) -> CollectionType:  # Use JsonSchemaModel instead of JsonSchema
+    ):
         """Create a new collection"""
-        klass = create_class(schema=data)
-        return CollectionType(
-            id=klass.col_id(),
-            schema=JsonSchema(**klass.model_json_schema()),
-            name=klass.__name__
-        )
-
+        return manager.create_collection(
+            data=data)
     @router.get("")
     async def _():
         """List all collections"""
