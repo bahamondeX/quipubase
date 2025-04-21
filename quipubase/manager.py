@@ -1,13 +1,13 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Type
+from typing import Generator, Type
 
 from fastapi import HTTPException
 
 from .classgen import create_class
 from .collection import Collection
-from .typedefs import JsonSchemaModel
+from .typedefs import JsonSchemaModel, JsonSchema, CollectionType, CollectionMetadataType
 from .utils import get_logger, singleton
 
 logger = get_logger("[StateManager]")
@@ -65,7 +65,7 @@ class StateManager:
             status_code=404, detail=f"Collection '{collection_id}' not found"
         )
 
-    def list_collections(self):
+    def list_collections(self)-> Generator[CollectionMetadataType, None, None]:
         """List all collections in the data directory"""
         data_dir = os.path.join(Path.home(), ".data")
         if not os.path.exists(data_dir):
@@ -79,11 +79,26 @@ class StateManager:
                 klass = self._get_collection(col_id)
                 yield {"name":klass.__name__, "id":col_id}
 
-    def retrieve_collection(self, *, col_id:str):
+    def get_collection(self, *, col_id:str)-> CollectionType:
         """Retrieve a collection class by ID"""
         try:
             klass = self._get_collection(col_id)
-            return {"name":klass.__name__, "id":col_id, "schema":klass.model_json_schema()}
+            return {"name":klass.__name__, "id":col_id, "schema":JsonSchema(**klass.model_json_schema())}
         except HTTPException as e:
             logger.error(f"Failed to retrieve collection '{col_id}': {str(e)}")
             raise e
+
+    def delete_collection(self, *, col_id:str):
+        try:
+            klass = self._get_collection(col_id)
+            klass.destroy()
+            return {"success": True}
+        except HTTPException as e:
+            logger.error(f"Failed to delete collection '{col_id}': {str(e)}")
+            raise e
+        except Exception as e:
+            logger.error(f"Failed to delete collection '{col_id}': {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to delete collection '{col_id}': {str(e)}",
+            )

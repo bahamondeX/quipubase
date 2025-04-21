@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Dict, List
+from typing import Dict
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 
 from ..classgen import create_class
 from ..collection import Collection
-from ..typedefs import ActionRequest, CollectionType, JsonSchemaModel
+from ..typedefs import ActionRequest, CollectionType, JsonSchemaModel,JsonSchema
 from ..utils import get_logger
+from ..manager import StateManager
+
 
 logger = get_logger("[CollectionRouter]")
-
+manager = StateManager()
 
 def collections_router() -> APIRouter:
     """Factory function to create a collection management router"""
@@ -23,45 +25,23 @@ def collections_router() -> APIRouter:
         data: JsonSchemaModel,
     ) -> CollectionType:  # Use JsonSchemaModel instead of JsonSchema
         """Create a new collection"""
-        col_class = create_class(schema=data)
+        klass = create_class(schema=data)
         return CollectionType(
-            id=col_class.col_path().split("/")[-1],
-            definition=col_class.col_json_schema(),
+            id=klass.col_id(),
+            schema=JsonSchema(**klass.model_json_schema()),
+            name=klass.__name__
         )
 
     @router.get("")
-    async def _(
-        limit: int = Query(default=100, ge=0), offset: int = Query(default=0, ge=0)
-    ) -> List[str]:
+    async def _():
         """List all collections"""
-
-        def generator():
-            nonlocal offset, limit
-            for col in Collection.__subclasses__():
-                if offset:
-                    offset -= 1
-                    continue
-                if limit:
-                    limit -= 1
-                    yield col.col_path().split("/")[-1]
-                continue
-
-        return list(generator())
+        return list(manager.list_collections())
 
     @router.get("/{collection_id}")
-    async def _(collection_id: str) -> CollectionType:
+    async def _(collection_id: str):
         """Get a specific collection by ID"""
-        for col in Collection.__subclasses__():
-            col_path = col.col_path().split("/")[-1]
-            logger.info(f"col_path: {col_path}, collection_id: {collection_id}")
-            if col_path == collection_id:
-                return CollectionType(
-                    id=collection_id, definition=col.col_json_schema()
-                )
-        raise HTTPException(
-            status_code=404, detail=f"Collection '{collection_id}' not found"
-        )
-
+        return manager.get_collection(col_id=collection_id)
+        
     @router.delete("/{collection_id}")
     async def _(collection_id: str) -> Dict[str, bool]:
         """Delete a collection by ID"""

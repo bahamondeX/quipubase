@@ -8,7 +8,7 @@ from aioredis import Redis
 
 # Redis connection
 _db: Redis = Redis.from_url(  # type: ignore
-    os.environ["REDIS_URL"],
+    "redis://:jR6%5BqQ5%5BfV5$yM2%5B@northamerica-northeast1-001.proxy.kinsta.app:30044",
     max_connections=250,
     encoding="utf-8",
     decode_responses=False,  # for orjson

@@ -35,11 +35,14 @@ class JsonSchema(TypedDict):
 
 # Define QuipuActions as a type alias for a set of string literals
 QuipuActions: TypeAlias = Literal["create", "read", "update", "delete", "query", "stop"]
-class CollectionType(BaseModel):
+class CollectionType(TypedDict):
     id: str
-    definition: JsonSchemaModel  # Use the Pydantic model version
-
-
+    name:str
+    schema: JsonSchema 
+    
+class CollectionMetadataType(TypedDict):
+    id: str
+    name: str
 class PubRequest(BaseModel):
     """Request model for publishing events"""
 
