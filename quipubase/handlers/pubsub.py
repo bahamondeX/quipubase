@@ -82,7 +82,7 @@ def pubsub_router() -> APIRouter:
                         yield f"{event.model_dump_json()}\n"
             return StreamingResponse(
                 event_generator(),
-                media_type="text/event-stream",
+                media_type=accept,
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
