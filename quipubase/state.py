@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Optional, Type, TypeVar
+from typing import Dict, Type
 
 from fastapi import HTTPException
 
@@ -12,64 +12,34 @@ from .utils import get_logger, singleton
 
 logger = get_logger("[StateManager]")
 
-T = TypeVar("T", bound=Collection)
-
 
 @singleton
 class StateManager:
     """Singleton for managing collection classes and exchanges"""
 
-    collections_cache: Dict[str, Type[Collection]]
-
-    def __init__(
-        self, collections_cache: Optional[Dict[str, Type[Collection]]] = None
-    ) -> None:
-        self.collections_cache = collections_cache or {}
-        self.exchanges_cache = {}
-
-    def get_collection(self, collection_id: str) -> Type[Collection]:
+    def _get_collection(self, collection_id: str) -> Type[Collection]:
         """Get or create a collection class for a given collection ID"""
-        # First check cache
-        if collection_id in self.collections_cache:
-            return self.collections_cache[collection_id]
+        for data_dir in Path(os.path.join(Path.home(), ".data")).iterdir():
+            if not data_dir.is_dir():
+                continue
+            if data_dir.as_posix().split("/")[-1] == collection_id:
+                json_schema = self._get_json_schema(collection_id)
+                return create_class(schema=json_schema)
+        raise HTTPException(
+            status_code=404,
+            detail=f"Collection '{collection_id}' not found in data directory",
+        )
 
-        # Try to find from existing Collection subclasses
-        for col_class in Collection.__subclasses__():
-            col_path = col_class.col_path().split("/")[-1]
-            if col_path == collection_id:
-                self.collections_cache[collection_id] = col_class
-                return col_class
-
-        # Try to load from disk by getting the schema
-        try:
-            schema = self.get_json_schema(collection_id)
-            klass = create_class(schema=schema)
-            self.collections_cache[collection_id] = klass
-            return klass
-        except Exception as e:
-            logger.error(f"Failed to get collection {collection_id}: {str(e)}")
-            raise HTTPException(
-                status_code=404, detail=f"Collection '{collection_id}' not found"
-            )
-
-    def get_json_schema(self, collection_id: str) -> JsonSchemaModel:
+    def _get_json_schema(self, collection_id: str) -> JsonSchemaModel:
         """Get the JSON schema for a collection ID"""
-        # First check cache
-        for klass in self.collections_cache.values():
-            col_path = klass.col_path().split("/")[-1]
-            if col_path == collection_id:
-                return klass.col_json_schema()
-
         # Check in .data directory
         data_dir = os.path.join(Path.home(), ".data")
         if not os.path.exists(data_dir):
             raise HTTPException(
-                status_code=404, detail=f"Data directory not found at {data_dir}"
+                status_code=404,
+                detail=f"Data directory for Quipubase not found at {data_dir}",
             )
-
-        # Try to find a directory matching collection_id
         for directory in os.listdir(data_dir):
-            # Check if this is the collection we're looking for
             if directory == collection_id:
                 schema_path = Path(os.path.join(data_dir, directory, "schema.json"))
                 if not schema_path.exists():
@@ -79,7 +49,7 @@ class StateManager:
                     )
 
                 try:
-                    schema_data = json.loads(schema_path.read_text())
+                    schema_data = json.loads(schema_path.read_text(), encoding="utf-8")
                     return JsonSchemaModel(**schema_data)
                 except Exception as e:
                     logger.error(
@@ -95,10 +65,25 @@ class StateManager:
             status_code=404, detail=f"Collection '{collection_id}' not found"
         )
 
-    def clear_cache(self, collection_id: Optional[str] = None) -> None:
-        """Clear the cache for a specific collection or all collections"""
-        if collection_id is not None:
-            if collection_id in self.collections_cache:
-                del self.collections_cache[collection_id]
-        else:
-            self.collections_cache.clear()
+    def list_collections(self):
+        """List all collections in the data directory"""
+        data_dir = os.path.join(Path.home(), ".data")
+        if not os.path.exists(data_dir):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Data directory for Quipubase not found at {data_dir}",
+            )
+        for directory in os.listdir(data_dir):
+            if os.path.isdir(os.path.join(data_dir, directory)):
+                col_id = Path(directory).as_posix().split("/")[-1]
+                klass = self._get_collection(col_id)
+                yield {"name":klass.__name__, "id":col_id}
+                
+    def retrieve_collection(self, *, col_id:str):
+        """Retrieve a collection class by ID"""
+        try:
+            klass = self._get_collection(col_id)
+            return {"name":klass.__name__, "id":col_id, "schema":klass.model_json_schema()}
+        except HTTPException as e:
+            logger.error(f"Failed to retrieve collection '{col_id}': {str(e)}")
+            raise e

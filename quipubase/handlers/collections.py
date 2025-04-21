@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..classgen import create_class
 from ..collection import Collection
-from ..typedefs import CollectionType, JsonSchemaModel, ActionRequest
+from ..typedefs import ActionRequest, CollectionType, JsonSchemaModel
 from ..utils import get_logger
 
 logger = get_logger("[CollectionRouter]")

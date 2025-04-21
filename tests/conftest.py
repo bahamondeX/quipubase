@@ -14,7 +14,6 @@ from fastapi.testclient import TestClient
 
 from quipubase import create_app
 from quipubase.collection import Collection
-from quipubase.exchange import Exchange
 from quipubase.state import StateManager
 
 
@@ -52,15 +51,6 @@ def state_manager():
 
 
 @pytest.fixture
-def exchange():
-    """Return an Exchange instance for TestModel"""
-    exchange = Exchange[TestModel]()
-    yield exchange
-    # Close all queues
-    asyncio.run(exchange.close())
-
-
-@pytest.fixture
 def cleanup():
     """Cleanup fixture to remove test data after tests"""
     # Setup - can create any test data directories needed
@@ -72,7 +62,7 @@ def cleanup():
         try:
             # Clean up TestModel data
             TestModel.destroy()
-        except Exception:
+        except Exception:  #
             pass
 
         # Clean up any test_ prefixed collections

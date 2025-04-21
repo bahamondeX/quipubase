@@ -1,0 +1,30 @@
+{
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.7.0",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --port 3333 --open"
+  },
+  "dependencies": {
+    "@vueuse/core": "*",
+    "quipubase": "^1.0.1",
+    "vue": "*",
+    "vue-router": "*"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "@unocss/eslint-plugin": "*",
+    "@vitejs/plugin-vue": "*",
+    "@vue-macros/volar": "*",
+    "jsdom": "*",
+    "typescript": "*",
+    "unocss": "*",
+    "unplugin-auto-import": "*",
+    "unplugin-vue-components": "*",
+    "unplugin-vue-macros": "*",
+    "unplugin-vue-router": "*",
+    "vite": "*",
+    "vue-tsc": "*"
+  }
+}

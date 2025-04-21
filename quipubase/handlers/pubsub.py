@@ -15,7 +15,7 @@ logger = get_logger("[PubSubRouter]")
 
 
 def pubsub_router() -> APIRouter:
-    router = APIRouter(prefix="/pubsub", tags=["pubsub"])
+    router = APIRouter(tags=["pubsub"])
     state_manager = StateManager()
 
     @router.post("/events/{collection_id}")
@@ -56,7 +56,7 @@ def pubsub_router() -> APIRouter:
                 raise ValueError("Both id and data are missing")
 
             assert item is not None
-            event = Event[klass](event=action, item=item)
+            event = Event[klass](event=action, data=item)
             await pubsub.pub(collection_id, event)
             return {
                 "collection": klass.col_path().split("/")[-1],

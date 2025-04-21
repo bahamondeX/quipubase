@@ -5,9 +5,6 @@ from functools import wraps
 
 import orjson
 from aioredis import Redis
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # Redis connection
 _db: Redis = Redis.from_url(  # type: ignore

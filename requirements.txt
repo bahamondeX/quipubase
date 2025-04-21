@@ -1,0 +1,5 @@
+rocksdict
+fastapi
+orjson
+aioredis
+uvicorn

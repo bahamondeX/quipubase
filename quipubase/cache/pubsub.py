@@ -1,7 +1,9 @@
 import asyncio
 import typing as tp
+
 from quipubase.collection import Collection
 from quipubase.event import Event
+
 from .cache import _db  # type: ignore
 
 T = tp.TypeVar("T", bound=Collection)

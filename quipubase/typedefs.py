@@ -35,18 +35,6 @@ class JsonSchema(TypedDict):
 
 # Define QuipuActions as a type alias for a set of string literals
 QuipuActions: TypeAlias = Literal["create", "read", "update", "delete", "query", "stop"]
-
-
-class CollectionRequest(BaseModel):
-    definition: JsonSchemaModel  # Use the Pydantic model version
-    name: str
-
-
-class CollectionResponse(BaseModel):
-    id: str
-    definition: JsonSchemaModel  # Use the Pydantic model version
-
-
 class CollectionType(BaseModel):
     id: str
     definition: JsonSchemaModel  # Use the Pydantic model version
