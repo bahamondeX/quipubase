@@ -34,6 +34,11 @@ type ActionRequest = {
 	data?: object | null;
 };
 
+type SSEEvent<T> = {
+	data: T
+	event: "create" | "read" | "update" | "delete" | "query" | "stop";
+}
+
 const isObject = (value: any): value is object => {
 	return value && typeof value === "object" && !Array.isArray(value);
 };
@@ -298,7 +303,11 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 	}
 
 	// Stream subscription with custom handling
-	async subscribeToEvents(collectionId: string, callback: (data: string) => any): Promise<void> {
+	async subscribeToEvents(collectionId: string, callback: (data: SSEEvent<T>) => any) {
+		if (window.EventSource) {
+			return this._subscribeToEvents(collectionId, callback);
+
+		}
 		const url = this.buildUrl("/v1/events", collectionId);
 
 		// Using fetch with a reader for more control
@@ -311,58 +320,28 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 			if (done) break;
 
 			const chunk = decoder.decode(value, { stream: true });
-			callback(chunk);
+			callback(JSON.parse(chunk));
 		}
 	}
+
+	async _subscribeToEvents(collectionId: string, callback: (event: any) => void): Promise<() => void> {
+		const url = this.buildUrl("/v1/events", collectionId);
+		const eventSource = new EventSource(url);
+
+		eventSource.onmessage = (event) => {
+			callback(JSON.parse(event.data));
+		};
+
+		eventSource.onerror = (error) => {
+			console.error("EventSource error:", error);
+			eventSource.close();
+		};
+		// Return a function to close the connection
+		return () => {
+			eventSource.close();
+		};
+	}
+
 }
 
 export type { CollectionType, Status, JsonSchema, Event, ActionRequest };
-
-
-type TestData = {
-	message: string;
-};
-
-const schema: JsonSchema = {
-	title: `PubSubTest`,
-	type: "object",
-	properties: {
-		message: { type: "string" },
-	},
-	required: ["message"],
-};
-
-const main = async () => {
-	const sdk = new QuipuBase<TestData>("https://quipubase.online");
-
-
-	const created = await sdk.createCollection(schema);
-	console.log("Collection created:", created);
-
-	// 2. Subscribe to events
-	console.log("Subscribing to events...");
-	const unsubscribe = await sdk.subscribeToEvents(created.id, (event) => {
-		console.log("Event received:", event);
-	});
-
-	// 3. Publish a 'create' event manually
-	const data: TestData = { message: "Hello, PubSub!" };
-	const actionRequest: ActionRequest = {
-		event: "create",
-		data,
-	};
-
-	console.log("Publishing event...");
-	const result = await sdk.publishEvent(created.id, actionRequest);
-	console.log("Publish response:", result);
-
-	// Wait a bit to ensure event is received
-	await new Promise((resolve) => setTimeout(resolve, 3000));
-
-	// 4. Cleanup
-	console.log("Unsubscribing and deleting collection...");
-	const deleted = await sdk.deleteCollection(created.id);
-	console.log("Collection deleted:", deleted);
-};
-
-main().catch(console.error);
