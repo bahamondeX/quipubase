@@ -20,7 +20,7 @@ def pubsub_router() -> APIRouter:
 
     @router.post("/events/{collection_id}")
     async def _(collection_id: str, req: ActionRequest) -> Dict[str, Any]:
-        klass = state_manager.get_collection(collection_id)
+        klass = state_manager._get_collection(collection_id)
         try:
             pubsub = PubSub[klass]()
             item = None
@@ -69,7 +69,7 @@ def pubsub_router() -> APIRouter:
     @router.get("/events/{collection_id}")
     async def _(collection_id: str):
         try:
-            klass = state_manager.get_collection(collection_id)
+            klass = state_manager._get_collection(collection_id)
             pubsub = PubSub[klass]()
 
             async def event_generator() -> AsyncIterator[str]:
