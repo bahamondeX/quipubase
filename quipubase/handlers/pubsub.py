@@ -59,8 +59,8 @@ def pubsub_router() -> APIRouter:
             event = Event[klass](event=action, data=item)
             await pubsub.pub(collection_id, event)
             return {
-                "collection": klass.col_id(),
-                "id": item.id if item else None,
+                "col_id": klass.col_id(),
+                "data": item,
             }
         except Exception as e:
             logger.error(f"Publish error: {e}")
@@ -79,7 +79,7 @@ def pubsub_router() -> APIRouter:
                     if accept == "text/event-stream":
                         yield f"data: {event.model_dump_json()}\n\n"
                     else:
-                        yield f"{event.model_dump_json()}\n"
+                        yield f"{event.model_dump_json(exclude_none=True)}\n"
             return StreamingResponse(
                 event_generator(),
                 media_type=accept,

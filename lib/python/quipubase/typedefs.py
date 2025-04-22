@@ -1,9 +1,13 @@
 # In typedefs.py
 import uuid
-from typing import Any, Dict, Literal, Optional, TypeAlias
+from typing import Any, Dict, Literal, Optional, TypeAlias, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, NotRequired
+from .schemas import Collection
+from .partial import Partial
+
+T = TypeVar("T", bound=Collection, covariant=True)
 
 
 # First define the JsonSchema as a regular Pydantic model (not TypedDict)
@@ -44,7 +48,12 @@ class CollectionMetadataType(TypedDict):
     id: str
     name: str
 
-class ActionRequest(BaseModel):
+class Request(BaseModel, Generic[T]):
+    model_config = {"arbitrary_types_allowed": True}
     event: QuipuActions = Field(default="query")
     id: Optional[uuid.UUID] = Field(default=None)
-    data: Optional[Dict[str, Any]] = Field(default=None)
+    data: Optional[T | Partial[T]] = Field(default=None)
+
+class Response(BaseModel, Generic[T]):
+    col_id:str
+    data:T

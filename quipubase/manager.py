@@ -67,23 +67,24 @@ class StateManager:
 
     def list_collections(self)-> Generator[CollectionMetadataType, None, None]:
         """List all collections in the data directory"""
-        data_dir = os.path.join(Path.home(), ".data")
-        if not os.path.exists(data_dir):
-            raise HTTPException(
-                status_code=404,
-                detail=f"Data directory for Quipubase not found at {data_dir}",
-            )
-        for directory in os.listdir(data_dir):
-            if os.path.isdir(os.path.join(data_dir, directory)):
-                col_id = Path(directory).as_posix().split("/")[-1]
-                klass = self._get_collection(col_id)
-                yield {"name":klass.__name__, "id":col_id}
+        for data_dir in Path(os.path.join(Path.home(), ".data")).iterdir():
+            if not data_dir.is_dir():
+                continue
+            collection_id = data_dir.as_posix().split("/")[-1]
+            try:
+                yield {
+                    "name": self._get_collection(collection_id).__name__,
+                    "id": collection_id
+                }
+            except HTTPException as e:
+                logger.error(f"Failed to retrieve collection '{collection_id}': {str(e)}")
+                raise e
 
     def get_collection(self, *, col_id:str)-> CollectionType:
         """Retrieve a collection class by ID"""
         try:
             klass = self._get_collection(col_id)
-            return {"name":klass.__name__, "id":col_id, "schema":JsonSchema(**klass.model_json_schema())}
+            return {"name":klass.__name__, "id":col_id, "schema":JsonSchema(**klass.col_json_schema().model_dump())}
         except HTTPException as e:
             logger.error(f"Failed to retrieve collection '{col_id}': {str(e)}")
             raise e
