@@ -3,24 +3,24 @@ from __future__ import annotations
 from typing import Any, AsyncIterator, Dict
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from sse_starlette import EventSourceResponse
 
 from ..cache import PubSub
-from ..event import Event
-from ..manager import StateManager
-from ..typedefs import ActionRequest, QuipuActions
-from ..utils import get_logger
+from ..data.event import Event
+from ..data.collection_manager import CollectionManager
+from ..models.typedefs import QuipubaseRequest, QuipuActions
+from ..models.utils import get_logger
 
 logger = get_logger("[PubSubRouter]")
 
 
 def pubsub_router() -> APIRouter:
-    router = APIRouter(tags=["pubsub"])
-    state_manager = StateManager()
+    router = APIRouter(tags=["events"])
+    col_manager = CollectionManager()
 
     @router.post("/events/{collection_id}")
-    async def _(collection_id: str, req: ActionRequest) -> Dict[str, Any]:
-        klass = state_manager._get_collection(collection_id)
+    async def _(collection_id: str, req: QuipubaseRequest) -> Dict[str, Any]:
+        klass = col_manager.retrieve_collection(collection_id)
         try:
             pubsub = PubSub[klass]()
             item = None
@@ -53,44 +53,31 @@ def pubsub_router() -> APIRouter:
                     item.create()
                     action = "create"
             else:
-                raise ValueError("Both id and data are missing")
-
-            assert item is not None
+                assert req.event == "stop"
+                action = "stop"
             event = Event[klass](event=action, data=item)
             await pubsub.pub(collection_id, event)
             return {
-                "col_id": klass.col_id(),
+                "collection": collection_id,
                 "data": item,
+                "event":action
             }
         except Exception as e:
             logger.error(f"Publish error: {e}")
             raise HTTPException(status_code=400, detail=str(e))
 
-    @router.get("/events/{collection_id}")
+    @router.get("/events/{collection_id}", response_class=EventSourceResponse)
     async def _(request:Request,collection_id: str):
         """Subscribe to events for a specific collection"""
-        accept = request.headers.get("Accept", "text/event-stream")
         try:
-            klass = state_manager._get_collection(collection_id)
+            klass = col_manager.retrieve_collection(collection_id)
             pubsub = PubSub[klass]()
-
-            async def event_generator() -> AsyncIterator[str]:
+            async def event_generator() -> AsyncIterator[dict[str,object]]:
                 async for event in pubsub.sub(channel=collection_id):
-                    if accept == "text/event-stream":
-                        yield f"data: {event.model_dump_json()}\n\n"
-                    else:
-                        yield f"{event.model_dump_json(exclude_none=True)}\n"
-            return StreamingResponse(
-                event_generator(),
-                media_type=accept,
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no",
-                    "Transfer-Encoding": "chunked",
-                },
-            )
-
+                    if await request.is_disconnected() or event.event == "stop":
+                        break
+                    yield event.model_dump()
+            return EventSourceResponse(content=event_generator(),ping=10)            
         except Exception as e:
             logger.error(f"SSE error: {e}")
             raise HTTPException(status_code=500, detail=f"SSE error: {e}")

@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import asyncio
 from typing import Dict
 
-from fastapi import APIRouter, HTTPException
-
-from ..collection import Collection
-from ..typedefs import ActionRequest, JsonSchemaModel
-from ..utils import get_logger
-from ..manager import StateManager
+from fastapi import APIRouter
+from ..models.typedefs import JsonSchemaModel
+from ..models.utils import get_logger
+from ..data.collection_manager import CollectionManager
 
 
 logger = get_logger("[CollectionRouter]")
-manager = StateManager()
+manager = CollectionManager()
 
 def collections_router() -> APIRouter:
     """Factory function to create a collection management router"""
@@ -37,7 +34,7 @@ def collections_router() -> APIRouter:
         return manager.get_collection(col_id=collection_id)
         
     @router.delete("/{collection_id}")
-    async def _(collection_id: str) -> Dict[str, bool]:
+    async def _(collection_id: str) -> Dict[str, int]:
         """Delete a collection by ID"""
         return manager.delete_collection(col_id=collection_id)
 

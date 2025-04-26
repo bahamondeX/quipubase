@@ -1,14 +1,15 @@
 import asyncio
-import os
 import typing as tp
 from functools import wraps
 
 import orjson
 from aioredis import Redis
 
+from ..models.const import REDIS_URL
+
 # Redis connection
 _db: Redis = Redis.from_url(  # type: ignore
-    "redis://:jR6%5BqQ5%5BfV5$yM2%5B@northamerica-northeast1-001.proxy.kinsta.app:30044",
+    REDIS_URL,
     max_connections=250,
     encoding="utf-8",
     decode_responses=False,  # for orjson

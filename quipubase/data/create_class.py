@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Literal, Optional, Type, Union
 from pydantic import BaseModel, Field, create_model  # type: ignore
 
 from .collection import Collection
-from .const import MAPPING
-from .typedefs import JsonSchema, JsonSchemaModel
+from ..models.const import MAPPING
+from ..models.typedefs import JsonSchema, JsonSchemaModel
 
 
 def sanitize(text: str):
@@ -59,7 +59,7 @@ def cast_to_type(schema: JsonSchema) -> Any:
             return create_class(schema=JsonSchemaModel.model_validate(s))
     elif schema.get("type") == "array":
         assert "items" in schema, "Missing 'items' in array schema"
-        return List[cast_to_type((schema.get("items") or {}))]
+        return List[cast_to_type((schema.get("items") or {}))] # type: ignore
     return MAPPING.get(schema.get("type", "string"), str)
 
 

@@ -2,7 +2,6 @@
 
 import json
 import os
-import shutil
 from pathlib import Path
 from typing import Any, Iterator, Optional, Type, TypeVar
 from uuid import UUID, uuid4
@@ -13,8 +12,8 @@ from rocksdict import Options  # pylint: disable=E0611
 from rocksdict import (PlainTableFactoryOptions,  # pylint: disable=E0611
                        Rdict, SliceTransform)
 
-from .typedefs import JsonSchemaModel
-from .utils import encrypt, get_logger
+from ..models.typedefs import JsonSchemaModel
+from ..models.utils import encrypt, get_logger
 
 T = TypeVar("T", bound="Collection")
 
@@ -239,18 +238,6 @@ class Collection(BaseModel):
         updated_record.create()
 
         return updated_record
-
-    @classmethod
-    def destroy(cls):
-        """Delete the collection."""
-        if not os.path.exists(cls.col_path()):
-            return 0
-        try:
-            shutil.rmtree(cls.col_path())
-            return 0
-        except Exception as e:  # pylint: disable=W0718
-            logger.error(e)
-            return 1
 
     @classmethod
     def init(cls):

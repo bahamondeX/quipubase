@@ -44,7 +44,7 @@ class CollectionMetadataType(TypedDict):
     id: str
     name: str
 
-class ActionRequest(BaseModel):
+class QuipubaseRequest(BaseModel):
     event: QuipuActions = Field(default="query")
     id: Optional[uuid.UUID] = Field(default=None)
     data: Optional[Dict[str, Any]] = Field(default=None)

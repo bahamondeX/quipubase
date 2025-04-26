@@ -1,8 +1,8 @@
 import asyncio
 import typing as tp
 
-from quipubase.collection import Collection
-from quipubase.event import Event
+from quipubase.data.collection import Collection
+from quipubase.data.event import Event
 
 from .cache import _db  # type: ignore
 
