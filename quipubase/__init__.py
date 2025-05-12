@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from .data import Collection
 from .models import CollectionType, JsonSchemaModel, QuipubaseRequest
-from .routes import collections_router, pubsub_router
+from .routes import collections_router, pubsub_router, store_router
 
 # Import all necessary components to avoid forward reference issues
 
@@ -39,6 +39,7 @@ def create_app():
     )
     app.include_router(collections_router(), prefix="/v1")
     app.include_router(pubsub_router(), prefix="/v1")
+    app.include_router(store_router(), prefix="/v1")
     app.mount("/", static_files, name="static")
 
     return app

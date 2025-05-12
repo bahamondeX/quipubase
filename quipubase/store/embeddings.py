@@ -1,11 +1,31 @@
-import typing as tp
-from collections import defaultdict
+"""
+Embedding Service Implementation
+=============================
 
+This module provides the embedding service implementation for generating vector
+representations of text data and performing similarity searches. It supports
+multiple embedding models and provides efficient vector operations.
+
+Key Features:
+- Multiple embedding model support
+- Efficient vector operations
+- Similarity search with cosine similarity
+- Text embedding generation
+
+Dependencies:
+- numpy: For numerical operations and array handling
+- faiss: For efficient similarity search
+- light_embed: For embedding model management
+"""
+
+import typing as tp
 import faiss  # type: ignore
 import numpy as np
 import typing_extensions as tpx
 from light_embed import TextEmbedding  # type: ignore
 from numpy.typing import NDArray
+
+from .typedefs import QueryMatch
 
 Texts: tpx.TypeAlias = tp.Union[str, list[str]]
 EmbeddingModel: tpx.TypeAlias = tp.Literal["poly-sage", "deep-pulse", "mini-scope"]
@@ -19,76 +39,107 @@ MODELS: dict[EmbeddingModel, TextEmbedding] = {
 
 
 class EmbeddingService(tp.NamedTuple):
+    """
+    Service for generating vector representations and performing similarity searches.
+
+    Args:
+        model (EmbeddingModel): The embedding model to use
+
+    Attributes:
+        model (EmbeddingModel): The embedding model instance
+    """
+
     model: EmbeddingModel
 
     def encode(self, data: Texts) -> NDArray[np.float32]:
+        """
+        Generate embeddings for text.
+
+        Args:
+            data (str | list[str]): Text or list of texts to embed
+
+        Returns:
+            NDArray[np.float32]: Generated embeddings
+
+        Example:
+            >>> service = EmbeddingService(...)
+            >>> embeddings = service.encode("Hello world")
+            >>> embeddings = service.encode(["Hello", "world"])
+        """
         if isinstance(data, str):
             data = [data]
-        return MODELS[self.model].encode(data).astype(np.float32)  # type: ignore
+        if not data:
+            return np.array([], dtype=np.float32).reshape(0, 768 if self.model != 'mini-scope' else 386)
+
+        raw_output = MODELS[self.model].encode(data)  # <- aquí está el potencial error
+        print(f"[DEBUG] Raw embedding output type: {type(raw_output)}, shape: {getattr(raw_output, 'shape', None)}")
+        
+        return np.asarray(raw_output, dtype=np.float32)  # fuerza a convertir si no es ndarray
+
+    def semantic_to_numpy(self, semantic: Semantic) -> NDArray[np.float32]:
+        """
+        Convert semantic input to numpy array.
+
+        Args:
+            semantic (Semantic): Input data (text, list, or numpy array)
+
+        Returns:
+            NDArray[np.float32]: Numpy array representation
+
+        Raises:
+            ValueError: If input type is not supported
+
+        Example:
+            >>> service.semantic_to_numpy("Hello")
+            >>> service.semantic_to_numpy(["Hello", "world"])
+        """
+        if isinstance(semantic, (list, str)):
+            return self.encode(semantic)
+        if not isinstance(semantic, np.ndarray):
+            raise ValueError(f"Expected numpy array, got {type(semantic)}")
+        if semantic.dtype != np.float32:
+            semantic = semantic.astype(np.float32)
+        if semantic.size == 0:
+            return np.array([], dtype=np.float32).reshape(0, 768 if self.model != 'mini-scope' else 384)
+        return semantic
 
     def search(
-        self, query: str, corpus: Semantic, top_k: int = 3
-    ) -> list[tuple[str, float]]:
-        if isinstance(corpus, list):
-            corpus = self.encode(corpus)
-        dim = corpus.shape[1]  # type: ignore
+        self,
+        query: list[float],
+        corpus: list[list[float]],
+        top_k: int = 3,
+    ) -> list[QueryMatch]:
+        """
+        Perform similarity search using cosine similarity.
 
-        index = faiss.IndexFlatIP(dim)
-        faiss.normalize_L2(corpus) # type: ignore
-        index.add(corpus) # type: ignore
+        Args:
+            query (list[float]): Query vector
+            corpus (list[list[float]]): List of vectors to search against
+            top_k (int): Number of top results to return (default: 3)
 
-        query_embedding = self.encode(query)[0].reshape(1, -1) # type: ignore
-        faiss.normalize_L2(query_embedding)  # type: ignore
+        Returns:
+            list[QueryMatch]: List of top matches with scores
 
-        scores, indices = index.search(query_embedding, # type: ignore
-        top_k) # type: ignore
-        return [(corpus[i], float(scores[0][j])) for j, i in enumerate(indices[0])]  # type: ignore
+        Example:
+            >>> query = [0.1, 0.2, 0.3]
+            >>> corpus = [[0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]
+            >>> matches = service.search(query, corpus, top_k=2)
+        """
+        # Convert to numpy arrays
+        corpus_np = np.array(corpus, dtype=np.float32)
+        query_np = np.array(query, dtype=np.float32)
 
-    def cluster(self, corpus: Semantic, n: int) -> dict[str, list[str]]:
-        if isinstance(corpus, list):
-            corpus = self.encode(corpus)
-        assert n < len(corpus) // 2, "n must be less than half the number of texts"
-        faiss.normalize_L2(corpus)  # type: ignore
-        dim = corpus.shape[1]  # type: ignore
-
-        # 1. KMeans clustering
-        kmeans = faiss.Kmeans(
-            d=dim, # type: ignore
-            k=n,  # type: ignore
-            niter=50,
-            verbose=False,
-            min_points_per_centroid=1,
+        # Calculate cosine similarities
+        similarities = corpus_np @ query_np / (
+            np.linalg.norm(corpus_np, axis=1) * np.linalg.norm(query_np) + 1e-8
         )
-        kmeans.train(corpus)  # type: ignore
-        _, labels = kmeans.index.search(corpus, 1)  # type: ignore
-        labels = labels.flatten()  # type: ignore
+        top_indices = np.argsort(similarities)[::-1][:top_k]
 
-        # 2. Agrupar textos y embeddings por cluster
-        cluster_texts = defaultdict[list[str]](list)  # type: ignore
-        cluster_embeds = defaultdict[list[NDArray[np.float32]]](list)  # type: ignore
-        for text, label, emb in zip(corpus, labels, corpus):  # type: ignore
-            cluster_texts[label].append(text)  # type: ignore
-            cluster_embeds[label].append(emb)  # type: ignore
-
-        # 3. Centroides de cada cluster
-        centroids = {
-            i: np.mean(np.vstack(cluster_embeds[i]), axis=0)  # type: ignore
-            for i in range(n)
-        }
-
-        # 4. Encontrar la key de cada cluster
-        result: dict[str, list[str]] = {}
-        for i in range(n):
-            others = [centroids[j] for j in range(n) if j != i]
-            target = np.mean(np.vstack(others), axis=0)
-            best_text, best_score = None, -np.inf
-            for text, emb in zip( # type: ignore
-                cluster_texts[i], cluster_embeds[i]  # type: ignore
-            ):  # type: ignore
-                score = np.dot(emb, target)  # type: ignore
-                if score > best_score:
-                    best_text = text  # type: ignore
-                    best_score = score
-            result[best_text] = cluster_texts[i]  # type: ignore
-
-        return result
+        return [
+            QueryMatch(
+                content=str(i),
+                embedding=corpus[i],
+                score=float(similarities[i]),
+            )
+            for i in top_indices
+        ]

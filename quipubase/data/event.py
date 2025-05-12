@@ -8,7 +8,7 @@ from .collection import Collection
 T = tp.TypeVar("T", bound=Collection, covariant=True)
 
 
-class Event(BaseModel, tp.Generic[T]):
+class EventType(BaseModel, tp.Generic[T]):
     """Event model"""
 
     event: QuipuActions

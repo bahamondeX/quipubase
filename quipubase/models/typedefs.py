@@ -5,6 +5,13 @@ from typing import Any, Dict, Literal, Optional, TypeAlias
 from pydantic import BaseModel, Field, InstanceOf
 from typing_extensions import NotRequired, TypedDict
 
+# Define QuipuActions as a type alias for a set of string literals
+QuipuActions: TypeAlias = Literal["create", "read", "update", "delete", "query", "stop"]
+
+JsonSchemaType: TypeAlias = Literal[
+    "object", "array", "string", "number", "integer", "boolean", "null"
+]
+
 
 # First define the JsonSchema as a regular Pydantic model (not TypedDict)
 class JsonSchemaModel(BaseModel):
@@ -12,9 +19,7 @@ class JsonSchemaModel(BaseModel):
 
     title: str = Field(...)
     description: Optional[str] = Field(default=None)
-    type: Literal[
-        "object", "array", "string", "number", "integer", "boolean", "null"
-    ] = Field(default="object")
+    type: JsonSchemaType = Field(default="object")
     properties: Dict[str, Any] = Field(..., alias="properties")
     required: Optional[list[str]] = Field(default=None, alias="required")
     enum: Optional[list[Any]] = Field(default=None, alias="enum")
@@ -27,14 +32,10 @@ class JsonSchema(TypedDict):
 
     title: str
     description: NotRequired[str]
-    type: Literal["object", "array", "string", "number", "integer", "boolean", "null"]
+    type: JsonSchemaType
     properties: Dict[str, Any]
     enum: NotRequired[list[Any]]
     items: NotRequired[Any]
-
-
-# Define QuipuActions as a type alias for a set of string literals
-QuipuActions: TypeAlias = Literal["create", "read", "update", "delete", "query", "stop"]
 
 
 class CollectionType(TypedDict):
@@ -52,7 +53,7 @@ class DeleteCollectionReturnType(TypedDict):
     code: int
 
 
-class PubResponseReturnType(TypedDict):
+class PubReturnType(TypedDict):
     collection: str
     data: InstanceOf[BaseModel]
     event: QuipuActions

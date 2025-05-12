@@ -1,10 +1,11 @@
 .PHONY: install dev test clean start stop restart lint build
 
 # Python interpreter and Poetry paths
-PYTHON = python3
+# Poetry python path
+PYTHON = $(shell poetry env info -p)/bin/python	
 POETRY = poetry
 VENV = .venv
-
+PYTHONDONTWRITEBYTECODE = 1
 # Application settings
 APP_MODULE = main:app
 HOST = 0.0.0.0
@@ -43,11 +44,11 @@ clean:
 
 # Start the application with Uvicorn
 start:
-	$(POETRY) run uvicorn $(APP_MODULE) --host $(HOST) --port $(PORT) --workers $(WORKERS) --reload
+	$(PYTHON) -m uvicorn $(APP_MODULE) --host $(HOST) --port $(PORT) --workers $(WORKERS) --reload
 
 # Start in development mode
 dev:
-	$(POETRY) run uvicorn $(APP_MODULE) --host $(HOST) --port $(PORT) --reload
+	$(PYTHON) -m uvicorn $(APP_MODULE) --host $(HOST) --port $(PORT) --workers $(WORKERS) --reload
 
 # Stop the application (find and kill Uvicorn processes)
 stop:

@@ -7,9 +7,8 @@ from sse_starlette import EventSourceResponse
 
 from ..cache import PubSub
 from ..data.collection_manager import CollectionManager
-from ..data.event import Event
-from ..models.typedefs import (PubResponseReturnType, QuipuActions,
-                               QuipubaseRequest)
+from ..data.event import EventType
+from ..models.typedefs import PubReturnType, QuipuActions, QuipubaseRequest
 from ..models.utils import get_logger
 
 logger = get_logger("[PubSubRouter]")
@@ -19,7 +18,7 @@ def pubsub_router() -> APIRouter:
     router = APIRouter(tags=["events"])
     col_manager = CollectionManager()
 
-    @router.post("/events/{collection_id}", response_model=PubResponseReturnType)
+    @router.post("/events/{collection_id}", response_model=PubReturnType)
     async def _(collection_id: str, req: QuipubaseRequest) -> Dict[str, Any]:
         klass = col_manager.retrieve_collection(collection_id)
         try:
@@ -56,9 +55,9 @@ def pubsub_router() -> APIRouter:
             else:
                 assert req.event == "stop"
                 action = "stop"
-            event = Event[klass](event=action, data=item)
+            event = EventType[klass](event=action, data=item)
             await pubsub.pub(collection_id, event)
-            return {"collection": collection_id, "data": item, "event": action}
+            return PubReturnType(collection=collection_id, data=item, event=action)
         except Exception as e:
             logger.error(f"Publish error: {e}")
             raise HTTPException(status_code=400, detail=str(e))
