@@ -1,16 +1,17 @@
 import json
 import os
-from pathlib import Path
 import shutil
+from pathlib import Path
 from typing import Generator, Type
 
 from fastapi import HTTPException
 
-from .create_class import create_class
-from .collection import Collection
-from ..models.typedefs import (CollectionMetadataType, CollectionType, JsonSchema,
-                       JsonSchemaModel)
+from ..models.typedefs import (CollectionMetadataType, CollectionType,
+                               DeleteCollectionReturnType, JsonSchema,
+                               JsonSchemaModel)
 from ..models.utils import get_logger, singleton
+from .collection import Collection
+from .create_class import create_class
 
 logger = get_logger("[CollectionManager]")
 
@@ -91,17 +92,17 @@ class CollectionManager:
             logger.error(f"Failed to retrieve collection '{col_id}': {str(e)}")
             raise e
 
-    def delete_collection(self, *, col_id: str):
+    def delete_collection(self, *, col_id: str) -> DeleteCollectionReturnType:
         try:
-            path = Path(os.path.join(Path.home(),".data",col_id))
+            path = Path(os.path.join(Path.home(), ".data", col_id))
             shutil.rmtree(path)
-            return {"code":0}
+            return {"code": 0}
         except HTTPException as e:
             logger.error(f"Failed to delete collection '{col_id}': {str(e)}")
-            return {"code":1}
+            return {"code": 500}
         except Exception as e:
             logger.error(f"Failed to delete collection '{col_id}': {str(e)}")
-            return {"code":100}
+            return {"code": 1}
 
     def create_collection(self, *, data: JsonSchemaModel) -> CollectionType:
         """Create a new collection"""

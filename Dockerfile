@@ -1,5 +1,7 @@
 FROM python:3.10-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1
+
 WORKDIR /app
 # Copy the application files
 COPY . .
@@ -21,4 +23,4 @@ RUN python -m pip install --upgrade pip && \
 
 EXPOSE 5431
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5431"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5431","--reload"]

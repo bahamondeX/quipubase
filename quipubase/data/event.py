@@ -2,8 +2,8 @@ import typing as tp
 
 from pydantic import BaseModel
 
-from .collection import Collection
 from ..models.typedefs import QuipuActions
+from .collection import Collection
 
 T = tp.TypeVar("T", bound=Collection, covariant=True)
 

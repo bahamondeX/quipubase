@@ -8,7 +8,7 @@ VENV = .venv
 # Application settings
 APP_MODULE = main:app
 HOST = 0.0.0.0
-PORT = 8000
+PORT = 5454
 WORKERS = 4
 
 # Install dependencies
@@ -16,7 +16,7 @@ install:
 	$(POETRY) install
 
 # Install development dependencies
-dev:
+run:
 	$(POETRY) install --with dev
 
 # Run tests with pytest
@@ -46,7 +46,7 @@ start:
 	$(POETRY) run uvicorn $(APP_MODULE) --host $(HOST) --port $(PORT) --workers $(WORKERS) --reload
 
 # Start in development mode
-dev-start:
+dev:
 	$(POETRY) run uvicorn $(APP_MODULE) --host $(HOST) --port $(PORT) --reload
 
 # Stop the application (find and kill Uvicorn processes)
@@ -87,7 +87,7 @@ help:
 	@echo "  test-file FILE=path   - Run specific test file"
 	@echo "  clean                 - Clean up cache files and temporary data"
 	@echo "  start                 - Start the application with Uvicorn"
-	@echo "  dev-start             - Start in development mode with auto-reload"
+	@echo "  dev           - Start in development mode with auto-reload"
 	@echo "  stop                  - Stop the application"
 	@echo "  restart               - Restart the application"
 	@echo "  lint                  - Run linting checks"

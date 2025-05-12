@@ -1,11 +1,12 @@
 # In typedefs.py
 import uuid
-from typing import Any, Dict, Literal, Optional, TypeAlias, Generic, TypeVar
+from typing import Any, Dict, Generic, Literal, Optional, TypeAlias, TypeVar
 
 from pydantic import BaseModel, Field
-from typing_extensions import TypedDict, NotRequired
-from .schemas import Collection
+from typing_extensions import NotRequired, TypedDict
+
 from .partial import Partial
+from .schemas import Collection
 
 T = TypeVar("T", bound=Collection, covariant=True)
 
@@ -39,14 +40,18 @@ class JsonSchema(TypedDict):
 
 # Define QuipuActions as a type alias for a set of string literals
 QuipuActions: TypeAlias = Literal["create", "read", "update", "delete", "query", "stop"]
+
+
 class CollectionType(TypedDict):
     id: str
-    name:str
-    schema: JsonSchema 
-    
+    name: str
+    schema: JsonSchema
+
+
 class CollectionMetadataType(TypedDict):
     id: str
     name: str
+
 
 class Request(BaseModel, Generic[T]):
     model_config = {"arbitrary_types_allowed": True}
@@ -54,6 +59,7 @@ class Request(BaseModel, Generic[T]):
     id: Optional[uuid.UUID] = Field(default=None)
     data: Optional[T | Partial[T]] = Field(default=None)
 
+
 class Response(BaseModel, Generic[T]):
-    col_id:str
-    data:T
+    col_id: str
+    data: T

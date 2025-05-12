@@ -1,3 +1,3 @@
-from .client import QuipuBase, Collection
+from .client import Collection, QuipuBase
 
-__all__ = ['QuipuBase','Collection']
+__all__ = ["QuipuBase", "Collection"]

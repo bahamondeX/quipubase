@@ -2,8 +2,8 @@
 import uuid
 from typing import Any, Dict, Literal, Optional, TypeAlias
 
-from pydantic import BaseModel, Field
-from typing_extensions import TypedDict, NotRequired
+from pydantic import BaseModel, Field, InstanceOf
+from typing_extensions import NotRequired, TypedDict
 
 
 # First define the JsonSchema as a regular Pydantic model (not TypedDict)
@@ -35,14 +35,28 @@ class JsonSchema(TypedDict):
 
 # Define QuipuActions as a type alias for a set of string literals
 QuipuActions: TypeAlias = Literal["create", "read", "update", "delete", "query", "stop"]
+
+
 class CollectionType(TypedDict):
     id: str
-    name:str
-    schema: JsonSchema 
-    
+    name: str
+    schema: JsonSchema
+
+
 class CollectionMetadataType(TypedDict):
     id: str
     name: str
+
+
+class DeleteCollectionReturnType(TypedDict):
+    code: int
+
+
+class PubResponseReturnType(TypedDict):
+    collection: str
+    data: InstanceOf[BaseModel]
+    event: QuipuActions
+
 
 class QuipubaseRequest(BaseModel):
     event: QuipuActions = Field(default="query")

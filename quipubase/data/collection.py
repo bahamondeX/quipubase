@@ -9,8 +9,8 @@ from uuid import UUID, uuid4
 import orjson
 from pydantic import BaseModel, Field  # pylint: disable=W0611
 from rocksdict import Options  # pylint: disable=E0611
-from rocksdict import (PlainTableFactoryOptions,  # pylint: disable=E0611
-                       Rdict, SliceTransform)
+from rocksdict import PlainTableFactoryOptions  # pylint: disable=E0611
+from rocksdict import Rdict, SliceTransform
 
 from ..models.typedefs import JsonSchemaModel
 from ..models.utils import encrypt, get_logger
@@ -94,9 +94,7 @@ class Collection(BaseModel):
     def col_path(cls):
         """The absolute path to the collection directory."""
         home_dir = Path.home().as_posix()
-        return os.path.join(
-            home_dir, ".data", cls.col_id()
-        )
+        return os.path.join(home_dir, ".data", cls.col_id())
 
     @classmethod
     def col_id(cls):

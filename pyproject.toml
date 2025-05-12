@@ -12,8 +12,8 @@ rocksdict = "^0.3.25"
 pydantic = "^2.11.3"
 fastapi = "^0.115.12"
 faiss-cpu = "^1.10.0"
-numpy = "^2.2.4"
 sse-starlette = "^2.3.3"
+light-embed = "^1.0.7"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"

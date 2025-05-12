@@ -2,23 +2,45 @@ import "reflect-metadata";
 
 type QuipuActions = "create" | "read" | "update" | "delete" | "query" | "stop";
 
-type JsonSchema = {
-	title: string;
-	description?: string;
-	type?: "object" | "array" | "string" | "number" | "integer" | "boolean" | "null";
-	properties: {
-		[key: string]: any;
-	};
-	required?: string[];
-	enum?: any[];
-	items?: any;
-};
+
+type JsonSchemaPrimitive<T extends string | number | boolean | bytes | null> = {
+    name: keyof T
+    type: "string" | "number" | "integer" | "boolean" | "binary" | "null"
+    format?: "date-time" | "base64" | "binary" | "uuid" | "email" | "hostname" | "ipv4" | "ipv6" | "uri" | "uri-reference"
+    default?: T[keyof T]
+    description?: string
+    required?: boolean
+    readOnly?: boolean
+    writeOnly?: boolean
+    examples?: T[keyof T][]
+    enum?: T[keyof T][]
+    nullable?: boolean    
+}
+
+type JsonSchemaObject<T extends Record<string, any>> = {
+    name: keyof T
+    type: "object"
+    properties: Record<string, JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>>
+    required?: string[]
+    nullable?: boolean
+}
+
+type JsonSchemaArray<T extends Array<any>> = {
+    name: keyof T
+    type: "array"
+    items: (JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>)[]
+    anyOf?: (JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>)[]
+    oneOf?: (JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>)[]
+    allOf?: (JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>)[]
+    nullable?: boolean
+}
+
+
+type JsonSchema<T> = JsonSchemaPrimitive<T> | JsonSchemaObject<T> | JsonSchemaArray<T>
+
 
 type Status = {
-	code: number;
-	message: string;
-	id?: string;
-	definition?: JsonSchema;
+	code:number 
 };
 
 type CollectionMetadataType = {
@@ -47,53 +69,6 @@ const isObject = (value: any): value is object => {
 	return value && typeof value === "object" && !Array.isArray(value);
 };
 
-const useStream = async <T>(
-	url: string,
-	data: T,
-	callback: (data: string) => any,
-	options?: RequestInit,
-): Promise<void> => {
-	const response = await fetch(url, {
-		...options,
-		method: "POST",
-		body: JSON.stringify(data),
-		headers: { "Content-Type": "application/json" },
-	});
-
-	if (!response.body) {
-		throw new Error("No response body");
-	}
-
-	const reader = response.body.getReader();
-	const decoder = new TextDecoder();
-	let buffer = "";
-
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) {
-			break;
-		}
-
-		buffer += decoder.decode(value, { stream: true });
-		let lines = buffer.split("\n");
-
-		for (let i = 0; i < lines.length - 1; i++) {
-			const line = lines[i].replace(/^data: /, "").trim();
-			if (line && line !== "[DONE]") {
-				callback(line + "\n");
-			}
-		}
-
-		buffer = lines[lines.length - 1];
-	}
-
-	if (buffer) {
-		const line = buffer.replace(/^data: /, "").trim();
-		if (line && line !== "[DONE]") {
-			callback(line + "\n");
-		}
-	}
-};
 
 function jsonSchemaGenerator(typeName: string): MethodDecorator {
 	return function (target: Object, key: string | symbol, descriptor: TypedPropertyDescriptor<any>): TypedPropertyDescriptor<any> | void {

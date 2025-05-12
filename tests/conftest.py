@@ -24,4 +24,3 @@ class TestModel(Collection):
 
     name: str
     price: int
-

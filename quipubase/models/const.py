@@ -1,8 +1,6 @@
-
 from typing import Any
 
-
-MAPPING:dict[str,Any] = {
+MAPPING: dict[str, Any] = {
     "string": str,
     "integer": int,
     "number": float,
@@ -12,4 +10,6 @@ MAPPING:dict[str,Any] = {
     "null": None,
 }
 
-REDIS_URL="redis://:jR6%5BqQ5%5BfV5$yM2%5B@northamerica-northeast1-001.proxy.kinsta.app:30044"
+REDIS_URL = (
+    "redis://:jR6%5BqQ5%5BfV5$yM2%5B@northamerica-northeast1-001.proxy.kinsta.app:30044"
+)
