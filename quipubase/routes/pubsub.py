@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Dict
+from typing import AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request
 from sse_starlette import EventSourceResponse
@@ -19,7 +19,7 @@ def pubsub_router() -> APIRouter:
     col_manager = CollectionManager()
 
     @router.post("/events/{collection_id}", response_model=PubReturnType)
-    async def _(collection_id: str, req: QuipubaseRequest) -> Dict[str, Any]:
+    async def _(collection_id: str, req: QuipubaseRequest):
         klass = col_manager.retrieve_collection(collection_id)
         try:
             pubsub = PubSub[klass]()
@@ -57,6 +57,7 @@ def pubsub_router() -> APIRouter:
                 action = "stop"
             event = EventType[klass](event=action, data=item)
             await pubsub.pub(collection_id, event)
+            assert item is not None
             return PubReturnType(collection=collection_id, data=item, event=action)
         except Exception as e:
             logger.error(f"Publish error: {e}")

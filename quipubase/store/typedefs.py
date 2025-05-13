@@ -19,14 +19,17 @@ Dependencies:
 """
 
 import typing as tp
+from pathlib import Path
 from uuid import uuid4
+
 import numpy as np
 import orjson
 import typing_extensions as tpe
 from numpy.typing import NDArray
-from pydantic import BaseModel, WithJsonSchema, Field, field_serializer, field_validator
+from pydantic import (BaseModel, Field, WithJsonSchema, field_serializer,
+                      field_validator)
 from rocksdict import Rdict
-from pathlib import Path
+
 
 class Embedding(BaseModel):
     """
@@ -37,30 +40,35 @@ class Embedding(BaseModel):
         content (str | list[str]): Text content or list of strings
         embedding (NDArray[np.float32]): Vector representation of the content
     """
+
     id: str = Field(default_factory=lambda: str(uuid4()))
     content: str | list[str]
-    embedding: tp.Annotated[NDArray[np.float32], WithJsonSchema({"type": "array", "items": {"type": "number"}})]
+    embedding: tp.Annotated[
+        NDArray[np.float32],
+        WithJsonSchema({"type": "array", "items": {"type": "number"}}),
+    ]
 
     model_config = {
         "arbitrary_types_allowed": True,
         "json_encoders": {
             NDArray: lambda v: v.tolist(),
             np.ndarray: lambda v: v.tolist(),
-        }
+        },
     }
 
     @field_serializer("embedding")
     @classmethod
-    def serialize_embedding(cls, v):
-        return v.tolist()
-    
+    def serialize_embedding(cls, v: tp.Any):
+        if isinstance(v,np.ndarray):
+            return v.tolist()
+
     @field_validator("embedding", mode="before")
     @classmethod
-    def validate_embedding(cls, v):
+    def validate_embedding(cls, v: tp.Any):  # type: ignore
         if isinstance(v, list):
             return np.array(v, dtype=np.float32)
         elif isinstance(v, np.ndarray):
-            return v
+            return v  # type: ignore
         raise ValueError(f"Expected list or numpy array, got {type(v)}")
 
     @classmethod
@@ -96,6 +104,7 @@ class Embedding(BaseModel):
             yield cls(**orjson.loads(value))
             iterable.next()
 
+
 class QueryMatch(BaseModel):
     """
     Represents a similarity search result.
@@ -105,11 +114,36 @@ class QueryMatch(BaseModel):
         content (str): Text content of the matched item
         embedding (NDArray[np.float32]): Vector representation of the matched item
     """
+    model_config = {
+        "arbitrary_types_allowed": True,
+        "json_encoders": {
+            NDArray: lambda v: v.tolist(),
+            np.ndarray: lambda v: v.tolist(),
+        },
+    }
+
     score: float
     content: str
-    embedding: tp.Annotated[NDArray[np.float32], WithJsonSchema({"type": "array", "items": {"type": "number"}})]
+    embedding: tp.Annotated[
+        NDArray[np.float32],
+        WithJsonSchema({"type": "array", "items": {"type": "number"}}),
+    ]
 
-class SemanticContent(tp.TypedDict):
+    @field_serializer("embedding")
+    @classmethod
+    def serialize_embedding(cls, v: tp.Any):
+        return v.tolist()
+
+    @field_validator("embedding", mode="before")
+    @classmethod
+    def validate_embedding(cls, v: tp.Any):  # type: ignore
+        if isinstance(v, list):
+            return np.array(v, dtype=np.float32)
+        elif isinstance(v, np.ndarray):
+            return v  # type: ignore
+        raise ValueError(f"Expected list or numpy array, got {type(v)}")
+
+class SemanticContent(tpe.TypedDict):
     """
     Typed dictionary for storing semantic content information.
 
@@ -117,8 +151,10 @@ class SemanticContent(tp.TypedDict):
         id (str): Unique identifier
         content (str): Text content
     """
+
     id: str
     content: str
+
 
 class UpsertResponse(tpe.TypedDict):
     """
@@ -128,8 +164,10 @@ class UpsertResponse(tpe.TypedDict):
         contents (list[SemanticContent]): List of inserted/updated items
         upsertedCount (int): Number of items processed
     """
+
     contents: list[SemanticContent]
     upsertedCount: int
+
 
 class QueryResponse(tpe.TypedDict):
     """
@@ -139,8 +177,10 @@ class QueryResponse(tpe.TypedDict):
         matches (list[QueryMatch]): List of matching items
         readCount (int): Total number of items considered
     """
+
     matches: list[QueryMatch]
     readCount: int
+
 
 class DeleteResponse(tpe.TypedDict):
     """
@@ -150,5 +190,6 @@ class DeleteResponse(tpe.TypedDict):
         embeddings (list[str]): List of deleted item IDs
         deletedCount (int): Number of items deleted
     """
+
     embeddings: list[str]
     deletedCount: int

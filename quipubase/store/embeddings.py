@@ -19,7 +19,6 @@ Dependencies:
 """
 
 import typing as tp
-import faiss  # type: ignore
 import numpy as np
 import typing_extensions as tpx
 from light_embed import TextEmbedding  # type: ignore
@@ -69,12 +68,18 @@ class EmbeddingService(tp.NamedTuple):
         if isinstance(data, str):
             data = [data]
         if not data:
-            return np.array([], dtype=np.float32).reshape(0, 768 if self.model != 'mini-scope' else 386)
+            return np.array([], dtype=np.float32).reshape(
+                0, 768 if self.model != "mini-scope" else 386
+            )
 
-        raw_output = MODELS[self.model].encode(data)  # <- aquí está el potencial error
-        print(f"[DEBUG] Raw embedding output type: {type(raw_output)}, shape: {getattr(raw_output, 'shape', None)}")
-        
-        return np.asarray(raw_output, dtype=np.float32)  # fuerza a convertir si no es ndarray
+        raw_output = MODELS[self.model].encode(data)  # <- aquí está el potencial error # type: ignore
+        print(
+            f"[DEBUG] Raw embedding output type: {type(raw_output)}, shape: {getattr(raw_output, 'shape', None)}" # type: ignore
+        )
+
+        return np.asarray(
+            raw_output, dtype=np.float32
+        )  # fuerza a convertir si no es ndarray
 
     def semantic_to_numpy(self, semantic: Semantic) -> NDArray[np.float32]:
         """
@@ -95,12 +100,12 @@ class EmbeddingService(tp.NamedTuple):
         """
         if isinstance(semantic, (list, str)):
             return self.encode(semantic)
-        if not isinstance(semantic, np.ndarray):
-            raise ValueError(f"Expected numpy array, got {type(semantic)}")
         if semantic.dtype != np.float32:
             semantic = semantic.astype(np.float32)
         if semantic.size == 0:
-            return np.array([], dtype=np.float32).reshape(0, 768 if self.model != 'mini-scope' else 384)
+            return np.array([], dtype=np.float32).reshape(
+                0, 768 if self.model != "mini-scope" else 384
+            )
         return semantic
 
     def search(
@@ -130,15 +135,17 @@ class EmbeddingService(tp.NamedTuple):
         query_np = np.array(query, dtype=np.float32)
 
         # Calculate cosine similarities
-        similarities = corpus_np @ query_np / (
-            np.linalg.norm(corpus_np, axis=1) * np.linalg.norm(query_np) + 1e-8
+        similarities = (
+            corpus_np
+            @ query_np
+            / (np.linalg.norm(corpus_np, axis=1) * np.linalg.norm(query_np) + 1e-8)
         )
         top_indices = np.argsort(similarities)[::-1][:top_k]
 
         return [
             QueryMatch(
                 content=str(i),
-                embedding=corpus[i],
+                embedding=corpus[i],  # type: ignore
                 score=float(similarities[i]),
             )
             for i in top_indices

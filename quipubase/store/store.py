@@ -22,13 +22,13 @@ import json
 import typing as tp
 from dataclasses import asdict, dataclass
 from functools import cached_property
-from uuid import uuid4
 
 import numpy as np
 from numpy.typing import NDArray
+
 from .embeddings import EmbeddingModel, EmbeddingService
-from .typedefs import (DeleteResponse, Embedding, SemanticContent, QueryResponse,
-                       UpsertResponse)
+from .typedefs import (DeleteResponse, Embedding, QueryResponse,
+                       SemanticContent, UpsertResponse)
 
 
 @dataclass
@@ -86,14 +86,22 @@ class VectorStore(tp.Hashable):
         embeddings: list[Embedding] = []
         for vector in vectors:
             embeddings.append(
-                Embedding(
-                    content=vector.content, embedding=vector.embedding
-                )
+                Embedding(content=vector.content, embedding=vector.embedding)
             )
         for embedding in embeddings:
             embedding.create(namespace=self.namespace)
         return UpsertResponse(
-            contents=[SemanticContent(id=embedding.id, content=embedding.content) for embedding in embeddings],
+            contents=[
+                SemanticContent(
+                    id=embedding.id,
+                    content=(
+                        embedding.content
+                        if isinstance(embedding.content, str)
+                        else ", ".join(embedding.content)
+                    ),
+                )
+                for embedding in embeddings
+            ],
             upsertedCount=len(embeddings),
         )
 
@@ -143,7 +151,11 @@ class VectorStore(tp.Hashable):
             text = [text]
         return self.service.encode(text)
 
-    def query(self, query_vector: list[float] | NDArray[np.float32], top_k: int = 3) -> QueryResponse:
+    def query(
+        self,
+        query_vector: tp.Union[list[float], NDArray[np.float32]],
+        top_k: int = 3
+    ) -> QueryResponse:
         """
         Perform a similarity search using cosine similarity.
 
@@ -158,22 +170,23 @@ class VectorStore(tp.Hashable):
             >>> query_vector = store.embed("Find similar content")
             >>> response = store.query(query_vector, top_k=5)
         """
+        # Normalize query_vector to list[float]
         if isinstance(query_vector, np.ndarray):
+            query_vector = query_vector.astype(np.float32).tolist()
+
+        # Retrieve all embeddings in the namespace
+        corpus: list[Embedding] = list(Embedding.scan(namespace=self.namespace))
+
+        # Extract only the embedding vectors
+        corpus_vectors: list[list[float]] = [e.embedding.tolist() for e in corpus]
+        if isinstance(query_vector,np.ndarray):
             query_vector = query_vector.tolist()
-        corpus: list[Embedding] = [e for e in Embedding.scan(namespace=self.namespace)]
-
-        # Extract vectors for search
-        corpus_vectors = [e.embedding for e in corpus]
-
-        # Execute search
-        matches = self.service.search(query=query_vector, corpus=corpus_vectors, top_k=top_k)
-
-        # Build mapping of index to content
-        content_map = {str(i): e.content for i, e in enumerate(corpus)}
-        
-        # Assign actual content to each match
-        for match in matches:
-            idx = str(match.content).strip("[]")
-            match.content = content_map.get(idx, str(match.content))
+            assert isinstance(query_vector,list)
+        # Perform the similarity search, passing also corpus objects for direct mapping
+        matches = self.service.search(
+            query=query_vector,
+            corpus=corpus_vectors,
+            top_k=top_k
+        )
 
         return QueryResponse(matches=matches, readCount=len(corpus))

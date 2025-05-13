@@ -1,6 +1,7 @@
 from .embeddings import EmbeddingModel
 from .store import VectorStore
-from .typedefs import DeleteResponse, Embedding, QueryResponse, UpsertResponse, QueryMatch
+from .typedefs import (DeleteResponse, Embedding, QueryMatch, QueryResponse,
+                       UpsertResponse)
 
 __all__ = [
     "EmbeddingModel",
