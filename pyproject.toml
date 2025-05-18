@@ -16,6 +16,9 @@ sse-starlette = "^2.3.3"
 light-embed = "^1.0.7"
 uvicorn = {extras = ["standard"], version = "^0.34.2"}
 aioredis = "^2.0.1"
+httpx = "^0.28.1"
+groq = "^0.24.0"
+openai = "^1.78.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"

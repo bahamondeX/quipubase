@@ -1,3 +1,5 @@
+import time
+import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -5,17 +7,18 @@ from ..store import (DeleteResponse, Embedding, EmbeddingModel, QueryResponse,
                      UpsertResponse, VectorStore)
 
 
-class UpsertText(BaseModel):
+class EmbedText(BaseModel):
     content: list[str]
-    namespace: str
     model: EmbeddingModel
 
 
-class QueryText(BaseModel):
-    query: str
+class UpsertText(EmbedText):
+    namespace: str
+
+
+class QueryText(EmbedText):
     namespace: str
     top_k: int
-    model: EmbeddingModel
 
 
 class DeleteText(BaseModel):
@@ -24,9 +27,9 @@ class DeleteText(BaseModel):
 
 
 def store_router() -> APIRouter:
-    app = APIRouter(tags=["stores"])
+    app = APIRouter(tags=["stores"], prefix="/vector")
 
-    @app.put("/embeddings", response_model=UpsertResponse)
+    @app.post("/upsert", response_model=UpsertResponse)
     async def _(data: UpsertText):
         """
         Upsert texts into the vector store.
@@ -50,7 +53,7 @@ def store_router() -> APIRouter:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/embeddings", response_model=QueryResponse)
+    @app.post("/query", response_model=QueryResponse)
     async def _(data: QueryText):
         """
         Query the vector store for similar texts.
@@ -66,11 +69,11 @@ def store_router() -> APIRouter:
         """
         try:
             store = VectorStore(namespace=data.namespace, model=data.model)
-            return store.query(store.embed(data.query), data.top_k)
+            return store.query(store.embed(data.content).tolist(), data.top_k)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.delete("/embeddings", response_model=DeleteResponse)
+    @app.delete("/delete", response_model=DeleteResponse)
     async def _(
         data: DeleteText,
     ):
@@ -90,5 +93,20 @@ def store_router() -> APIRouter:
             return response
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/embed")
+    async def _(data: EmbedText):
+        start = time.perf_counter()
+        vs = VectorStore(namespace="default", model=data.model)
+        embeddings: list[list[float]] = vs.embed(data.content).tolist()
+        end = time.perf_counter()
+        return {
+            "data": [
+                Embedding(content=c, embedding=np.array(e).astype(np.float32))
+                for c, e in zip(data.content, embeddings)
+            ],
+            "created": end - start,
+            "embedCount": len(embeddings),
+        }
 
     return app

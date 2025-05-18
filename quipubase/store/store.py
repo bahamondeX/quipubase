@@ -117,7 +117,7 @@ class VectorStore(tp.Hashable):
         """
         return Embedding.retrieve(id=id, namespace=self.namespace)
 
-    def delete(self, ids: list[str] | None = None) -> DeleteResponse:
+    def delete(self, ids: list[str]) -> DeleteResponse:
         """
         Delete embeddings by IDs.
 
@@ -130,12 +130,9 @@ class VectorStore(tp.Hashable):
         Example:
             >>> response = store.delete(["id1", "id2"])
         """
-        deleted_ids: list[str] = []
-        if ids:
-            for id in ids:
-                Embedding.delete(id=id, namespace=self.namespace)
-                deleted_ids.append(id)
-        return DeleteResponse(embeddings=deleted_ids, deletedCount=len(deleted_ids))
+        for id in ids:
+            Embedding.delete(id=id, namespace=self.namespace)
+        return DeleteResponse(embeddings=ids, deletedCount=len(ids))
 
     def embed(self, text: tp.Union[str, list[str]]) -> NDArray[np.float32]:
         """
@@ -151,11 +148,7 @@ class VectorStore(tp.Hashable):
             text = [text]
         return self.service.encode(text)
 
-    def query(
-        self,
-        query_vector: tp.Union[list[float], NDArray[np.float32]],
-        top_k: int = 3
-    ) -> QueryResponse:
+    def query(self, query_vector: list[float], top_k: int = 3):
         """
         Perform a similarity search using cosine similarity.
 
@@ -170,23 +163,6 @@ class VectorStore(tp.Hashable):
             >>> query_vector = store.embed("Find similar content")
             >>> response = store.query(query_vector, top_k=5)
         """
-        # Normalize query_vector to list[float]
-        if isinstance(query_vector, np.ndarray):
-            query_vector = query_vector.astype(np.float32).tolist()
-
-        # Retrieve all embeddings in the namespace
-        corpus: list[Embedding] = list(Embedding.scan(namespace=self.namespace))
-
-        # Extract only the embedding vectors
-        corpus_vectors: list[list[float]] = [e.embedding.tolist() for e in corpus]
-        if isinstance(query_vector,np.ndarray):
-            query_vector = query_vector.tolist()
-            assert isinstance(query_vector,list)
-        # Perform the similarity search, passing also corpus objects for direct mapping
-        matches = self.service.search(
-            query=query_vector,
-            corpus=corpus_vectors,
-            top_k=top_k
-        )
-
-        return QueryResponse(matches=matches, readCount=len(corpus))
+        corpus = list(Embedding.scan(namespace=self.namespace))
+        matches = self.service.search(query_vector, corpus)
+        return QueryResponse(matches=matches, readCount=len(matches))

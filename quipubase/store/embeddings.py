@@ -9,7 +9,7 @@ multiple embedding models and provides efficient vector operations.
 Key Features:
 - Multiple embedding model support
 - Efficient vector operations
-- Similarity search with cosine similarity
+- Similarity search using FAISS
 - Text embedding generation
 
 Dependencies:
@@ -20,11 +20,12 @@ Dependencies:
 
 import typing as tp
 import numpy as np
+import faiss  # type: ignore
 import typing_extensions as tpx
 from light_embed import TextEmbedding  # type: ignore
 from numpy.typing import NDArray
 
-from .typedefs import QueryMatch
+from .typedefs import QueryMatch, Embedding
 
 Texts: tpx.TypeAlias = tp.Union[str, list[str]]
 EmbeddingModel: tpx.TypeAlias = tp.Literal["poly-sage", "deep-pulse", "mini-scope"]
@@ -42,10 +43,10 @@ class EmbeddingService(tp.NamedTuple):
     Service for generating vector representations and performing similarity searches.
 
     Args:
-        model (EmbeddingModel): The embedding model to use
+            model (EmbeddingModel): The embedding model to use
 
     Attributes:
-        model (EmbeddingModel): The embedding model instance
+            model (EmbeddingModel): The embedding model instance
     """
 
     model: EmbeddingModel
@@ -55,48 +56,48 @@ class EmbeddingService(tp.NamedTuple):
         Generate embeddings for text.
 
         Args:
-            data (str | list[str]): Text or list of texts to embed
+                data (str | list[str]): Text or list of texts to embed
 
         Returns:
-            NDArray[np.float32]: Generated embeddings
+                NDArray[np.float32]: Generated embeddings
 
         Example:
-            >>> service = EmbeddingService(...)
-            >>> embeddings = service.encode("Hello world")
-            >>> embeddings = service.encode(["Hello", "world"])
+                >>> service = EmbeddingService(...)
+                >>> embeddings = service.encode("Hello world")
+                >>> embeddings = service.encode(["Hello", "world"])
         """
         if isinstance(data, str):
             data = [data]
         if not data:
             return np.array([], dtype=np.float32).reshape(
-                0, 768 if self.model != "mini-scope" else 386
+                0, 768 if self.model != "mini-scope" else 384
             )
 
-        raw_output = MODELS[self.model].encode(data)  # <- aquí está el potencial error # type: ignore
+        raw_output = MODELS[self.model].encode(data)  # type: ignore
         print(
-            f"[DEBUG] Raw embedding output type: {type(raw_output)}, shape: {getattr(raw_output, 'shape', None)}" # type: ignore
+            f"[DEBUG] Raw embedding output type: {type(raw_output)}, shape: {getattr(raw_output, 'shape', None)}"  # type: ignore
         )
 
         return np.asarray(
             raw_output, dtype=np.float32
-        )  # fuerza a convertir si no es ndarray
+        )  # force conversion if not ndarray
 
     def semantic_to_numpy(self, semantic: Semantic) -> NDArray[np.float32]:
         """
         Convert semantic input to numpy array.
 
         Args:
-            semantic (Semantic): Input data (text, list, or numpy array)
+                semantic (Semantic): Input data (text, list, or numpy array)
 
         Returns:
-            NDArray[np.float32]: Numpy array representation
+                NDArray[np.float32]: Numpy array representation
 
         Raises:
-            ValueError: If input type is not supported
+                ValueError: If input type is not supported
 
         Example:
-            >>> service.semantic_to_numpy("Hello")
-            >>> service.semantic_to_numpy(["Hello", "world"])
+                >>> service.semantic_to_numpy("Hello")
+                >>> service.semantic_to_numpy(["Hello", "world"])
         """
         if isinstance(semantic, (list, str)):
             return self.encode(semantic)
@@ -107,46 +108,44 @@ class EmbeddingService(tp.NamedTuple):
                 0, 768 if self.model != "mini-scope" else 384
             )
         return semantic
+        raise ValueError(f"Unsupported semantic input type: {type(semantic)}")
 
     def search(
         self,
         query: list[float],
-        corpus: list[list[float]],
+        corpus: list[Embedding],
         top_k: int = 3,
     ) -> list[QueryMatch]:
-        """
-        Perform similarity search using cosine similarity.
+        if not corpus:
+            return []
 
-        Args:
-            query (list[float]): Query vector
-            corpus (list[list[float]]): List of vectors to search against
-            top_k (int): Number of top results to return (default: 3)
+        corpus_embeddings = np.array([c.embedding for c in corpus], dtype=np.float32)
+        corpus_embeddings = corpus_embeddings.reshape(len(corpus), -1)
+        query_embedding = np.array(query, dtype=np.float32).reshape(1, -1)
+        dimension = corpus_embeddings.shape[1]
 
-        Returns:
-            list[QueryMatch]: List of top matches with scores
+        # Normalize the query and corpus embeddings
+        def normalize(vectors: tp.Any):
+            norms = np.linalg.norm(vectors, axis=1, keepdims=True)  # type: ignore
+            return vectors / norms  # type: ignore
 
-        Example:
-            >>> query = [0.1, 0.2, 0.3]
-            >>> corpus = [[0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]
-            >>> matches = service.search(query, corpus, top_k=2)
-        """
-        # Convert to numpy arrays
-        corpus_np = np.array(corpus, dtype=np.float32)
-        query_np = np.array(query, dtype=np.float32)
+        normalized_query = normalize(query_embedding)
+        normalized_corpus = normalize(corpus_embeddings)
 
-        # Calculate cosine similarities
-        similarities = (
-            corpus_np
-            @ query_np
-            / (np.linalg.norm(corpus_np, axis=1) * np.linalg.norm(query_np) + 1e-8)
-        )
-        top_indices = np.argsort(similarities)[::-1][:top_k]
+        # Build the Faiss index for inner product search
+        index = faiss.IndexFlatIP(dimension)
+        index.add(normalized_corpus)  # type: ignore
 
-        return [
-            QueryMatch(
-                content=str(i),
-                embedding=corpus[i],  # type: ignore
-                score=float(similarities[i]),
+        # Perform the search for top_k results
+        distances, indices = index.search(normalized_query, min(top_k, len(corpus)))  # type: ignore
+
+        # Prepare the results as a list of dictionaries
+        results: list[QueryMatch] = []
+        for i in range(len(distances[0])):  # type: ignore
+            result_dict = QueryMatch(
+                score=distances[0][i],  # type: ignore
+                content=corpus[indices[0][i]].content,  # type: ignore
             )
-            for i in top_indices
-        ]
+            results.append(result_dict)
+
+        return results

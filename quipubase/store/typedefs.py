@@ -100,9 +100,13 @@ class Embedding(BaseModel):
         iterable = db.iter()
         iterable.seek_to_first()
         while iterable.valid():
-            value = iterable.value()
-            yield cls(**orjson.loads(value))
-            iterable.next()
+            try:
+                value = iterable.value()
+                yield cls(**orjson.loads(value))
+                iterable.next()
+            except:
+                iterable.next()
+                continue
 
 
 class QueryMatch(BaseModel):
@@ -124,24 +128,6 @@ class QueryMatch(BaseModel):
 
     score: float
     content: str
-    embedding: tp.Annotated[
-        NDArray[np.float32],
-        WithJsonSchema({"type": "array", "items": {"type": "number"}}),
-    ]
-
-    @field_serializer("embedding")
-    @classmethod
-    def serialize_embedding(cls, v: tp.Any):
-        return v.tolist()
-
-    @field_validator("embedding", mode="before")
-    @classmethod
-    def validate_embedding(cls, v: tp.Any):  # type: ignore
-        if isinstance(v, list):
-            return np.array(v, dtype=np.float32)
-        elif isinstance(v, np.ndarray):
-            return v  # type: ignore
-        raise ValueError(f"Expected list or numpy array, got {type(v)}")
 
 class SemanticContent(tpe.TypedDict):
     """

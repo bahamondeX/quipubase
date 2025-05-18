@@ -23,4 +23,4 @@ RUN python -m pip install --upgrade pip && \
 
 EXPOSE 5431
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5431","--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5454","--reload"]
