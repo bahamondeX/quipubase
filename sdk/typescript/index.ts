@@ -1,194 +1,174 @@
 import "reflect-metadata";
+import { z, ZodType } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
-type QuipuActions = "create" | "read" | "update" | "delete" | "query" | "stop";
+export abstract class BaseModel {
+	static schema(): ZodType<any> {
+		throw new Error("Must implement schema()");
+	}
 
+	static jsonSchema() {
+		return zodToJsonSchema((this as any).schema());
+	}
+	static safeParse<T extends typeof BaseModel>(
+		this: T,
+		data: unknown
+	): { success: true; data: InstanceType<T> } | { success: false; error: z.ZodError } {
+		const result = this.schema().safeParse(data);
+		if (result.success) {
+			// @ts-ignore
+			const instance = new this() as InstanceType<T>;
+			Object.assign(instance, result.data);
+			return { success: true, data: instance };
+		} else {
+			return result;
+		}
+	}
 
-type JsonSchemaPrimitive<T extends string | number | boolean | bytes | null> = {
-    name: keyof T
+	toJSON() {
+		return JSON.stringify({ ...this });
+	}
+}
+
+export type QuipuActions = "create" | "read" | "update" | "delete" | "query" | "stop";
+
+export type EmbedModel = "poly-sage" | "deep-pulse" | "mini-scope";
+
+export type EmbedText = {
+	content: string[];
+	model: EmbedModel;
+};
+
+export type EmbedResponse = {
+	data: Embedding[];
+	created: number;
+	embedCount: number;
+};
+
+export type Embedding = {
+	id?: string;
+	content: string | string[];
+	embedding: number[];
+};
+
+export type UpsertText = {
+	namespace: string;
+	texts: string[];
+	model: EmbedModel;
+};
+
+export type UpsertResponse = {
+	ids: string[];
+	upsertedCount: number;
+};
+
+export type QueryText = {
+	namespace: string;
+	query: string;
+	top_k: number;
+	model: EmbedModel;
+};
+
+export type QueryResponse = {
+	matches: Array<{
+		id: string;
+		content: string;
+		score: number;
+	}>;
+	top_k: number;
+};
+
+export type DeleteText = {
+	namespace: string;
+	ids: string[];
+};
+
+export type DeleteResponse = {
+	embeddings: string[];
+	deletedCount: number;
+};
+
+export type JsonSchemaPrimitive = {
+	title?: string
+	name?: string
     type: "string" | "number" | "integer" | "boolean" | "binary" | "null"
     format?: "date-time" | "base64" | "binary" | "uuid" | "email" | "hostname" | "ipv4" | "ipv6" | "uri" | "uri-reference"
-    default?: T[keyof T]
+	default?: any
     description?: string
     required?: boolean
     readOnly?: boolean
     writeOnly?: boolean
-    examples?: T[keyof T][]
-    enum?: T[keyof T][]
+	examples?: any[]
+	enum?: any[]
     nullable?: boolean    
 }
 
-type JsonSchemaObject<T extends Record<string, any>> = {
-    name: keyof T
+export type JsonSchemaObject = {
+	title?: string
+	name?: string
     type: "object"
-    properties: Record<string, JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>>
+	properties: Record<string, JsonSchema>
     required?: string[]
     nullable?: boolean
 }
 
-type JsonSchemaArray<T extends Array<any>> = {
-    name: keyof T
+export type JsonSchemaArray = {
+	title?: string
+	name?: string
     type: "array"
-    items: (JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>)[]
-    anyOf?: (JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>)[]
-    oneOf?: (JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>)[]
-    allOf?: (JsonSchemaPrimitive<T[keyof T]> | JsonSchemaObject<T[keyof T]>)[]
+	items: JsonSchema
+	anyOf?: (JsonSchemaPrimitive | JsonSchemaObject)[]
+	oneOf?: (JsonSchemaPrimitive | JsonSchemaObject)[]
+	allOf?: (JsonSchemaPrimitive | JsonSchemaObject)[]
     nullable?: boolean
 }
 
+export type JsonSchema = JsonSchemaPrimitive | JsonSchemaObject | JsonSchemaArray
 
-type JsonSchema<T> = JsonSchemaPrimitive<T> | JsonSchemaObject<T> | JsonSchemaArray<T>
 
-
-type Status = {
+export type DeleteReturnType = {
 	code:number 
 };
 
-type CollectionMetadataType = {
+export type CollectionMetadataType = {
 	id: string;
 	name: string;
 };
 
-type CollectionType = {
+export type CollectionType = {
 	id: string;
 	name: string;
 	schema: JsonSchema;
 };
 
-type QuipubaseRequest = {
+export type QuipubaseRequest<T> = {
 	event: QuipuActions;
 	id?: string | null;
-	data?: object | null;
+	data?: T | Partial<T> | null;
 };
 
-type SSEEvent<T> = {
+
+export type SSEEvent<T extends BaseModel> = {
 	data: T;
 	event: "create" | "read" | "update" | "delete" | "query" | "stop";
 };
 
-const isObject = (value: any): value is object => {
-	return value && typeof value === "object" && !Array.isArray(value);
-};
 
-
-function jsonSchemaGenerator(typeName: string): MethodDecorator {
-	return function (target: Object, key: string | symbol, descriptor: TypedPropertyDescriptor<any>): TypedPropertyDescriptor<any> | void {
-		if (!descriptor || typeof descriptor.value !== "function") {
-			throw new Error("jsonSchemaGenerator can only be applied to methods.");
-		}
-		const originalMethod = descriptor.value;
-		const jsonSchema: JsonSchema = {
-			title: `${typeName}:${(target as { collectionId: string }).collectionId}`,
-			type: "object",
-			properties: {},
-			required: [],
-		};
-
-		const generateSchema = (value: Record<string, any>): JsonSchema => {
-			if (Array.isArray(value)) {
-				return {
-					title: `${typeName}:array`,
-					type: "array",
-					items: generateSchema(value[0]),
-					properties: {},
-				};
-			} else if (isObject(value)) {
-				const nestedSchema: JsonSchema = {
-					title: Object.keys(value)[0],
-					type: "object",
-					properties: {},
-					required: [],
-				};
-				for (const key in value) {
-					nestedSchema.properties[key] = generateSchema(value[key]);
-					if (value[key] !== null) {
-						(nestedSchema.required ??= []).push(key);
-					}
-				}
-				return nestedSchema;
-			} else {
-				if (typeof value === "object") {
-					return {
-						title: `${typeName}:object`, // Add a title property
-						type: "object",
-						properties: {},
-						required: [],
-					};
-				} else {
-					return {
-						title: `${typeName}:${String(key)}`, // Add a title property
-						type: typeof value as "string" | "number" | "boolean" | "null",
-						properties: {},
-					};
-				}
-			}
-		};
-
-		descriptor.value = function (...args: any[]) {
-			const result = originalMethod.apply(this, args);
-			const keys = Object.keys(result);
-
-			keys.forEach((key) => {
-				jsonSchema.properties[key] = generateSchema(result[key]);
-				if (result[key] !== null) {
-					(jsonSchema.required ??= []).push(key);
-				}
-			});
-
-			return jsonSchema;
-		};
-	};
-}
-
-interface IQuipuBase<T> {
-	baseUrl: string;
-	collectionId?: string;
-	data?: T;
-	id?: string;
-	limit?: number;
-	offset?: number;
-	buildUrl(endpoint: string, id?: string): string;
-	fetch(actionRequest: QuipubaseRequest, colId: string, endpoint: string): Promise<Status | T | T[] | CollectionType | CollectionMetadataType>;
-	getJsonSchema<T>(data: T): JsonSchema;
-}
-
-export class QuipuBase<T> implements IQuipuBase<T> {
+export class QuipuBase<T extends BaseModel> {
 	constructor(
-		public baseUrl: string = "https://quipubase.online",
+		public baseUrl: string = "http://localhost:5454",
 	) { }
-	// @ts-ignore
-	@jsonSchemaGenerator("data")
-	getJsonSchema<T>(data: T): JsonSchema {
-		return data as unknown as JsonSchema;
-	}
-
-	async fetch(
-		actionRequest: QuipubaseRequest,
-		colId: string,
-		endpoint: string
-	): Promise<Status | T | T[] | CollectionType | CollectionMetadataType> {
-		const url = this.buildUrl(endpoint, colId);
-		const options = {
-			method: "PUT",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(actionRequest),
-		};
-
-		const response = await fetch(url, options);
-		return await response.json();
-	}
 
 	buildUrl(endpoint: string, id?: string): string {
 		return `${this.baseUrl}${endpoint}${id ? `/${id}` : ""}`;
 	}
 
 	// Collection Management
-	async createCollection(schema: JsonSchema, name: string): Promise<CollectionType> {
+	async createCollection(data: T): Promise<CollectionType> {
 		const url = this.buildUrl("/v1/collections");
 		const collectionData = {
-			schema,
-			name
+			// @ts-ignore
+			schema: data.schema()
 		};
 
 		const options = {
@@ -209,7 +189,7 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 		return await response.json() as CollectionType;
 	}
 
-	async deleteCollection(collectionId: string): Promise<Record<string, boolean>> {
+	async deleteCollection(collectionId: string): Promise<DeleteReturnType> {
 		const url = this.buildUrl("/v1/collections", collectionId);
 		const options = {
 			method: "DELETE",
@@ -219,7 +199,7 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 		};
 
 		const response = await fetch(url, options);
-		return await response.json() as Record<string, boolean>;
+		return await response.json() as DeleteReturnType;
 	}
 
 	async listCollections(limit: number = 100, offset: number = 0): Promise<CollectionMetadataType[]> {
@@ -231,56 +211,8 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 		const response = await fetch(url);
 		return await response.json() as CollectionMetadataType[];
 	}
-
-	// Document Operations
-	async create(collectionId: string, data: T): Promise<T> {
-		const actionRequest: QuipubaseRequest = {
-			event: "create",
-			data: data || null,
-		};
-
-		return await this.fetch(actionRequest, collectionId, "/v1/collections") as T;
-	}
-
-	async read(collectionId: string, id: string): Promise<T> {
-		const actionRequest: QuipubaseRequest = {
-			event: "read",
-			id,
-		};
-
-		return await this.fetch(actionRequest, collectionId, "/v1/collections") as T;
-	}
-
-	async update(collectionId: string, id: string, data: Partial<T>): Promise<T> {
-		const actionRequest: QuipubaseRequest = {
-			event: "update",
-			id,
-			data,
-		};
-
-		return await this.fetch(actionRequest, collectionId, "/v1/collections") as T;
-	}
-
-	async delete(collectionId: string, id: string): Promise<Status> {
-		const actionRequest: QuipubaseRequest = {
-			event: "delete",
-			id,
-		};
-
-		return await this.fetch(actionRequest, collectionId, "/v1/collections") as Status;
-	}
-
-	async query(collectionId: string, data: Partial<T>): Promise<T[]> {
-		const actionRequest: QuipubaseRequest = {
-			event: "query",
-			data,
-		};
-
-		return await this.fetch(actionRequest, collectionId, "/v1/collections") as T[];
-	}
-
 	// PubSub Operations
-	async publishEvent(collectionId: string, actionRequest: QuipubaseRequest): Promise<T> {
+	async publishEvent(collectionId: string, actionRequest: QuipubaseRequest<T>): Promise<T> {
 		const url = this.buildUrl("/v1/events", collectionId);
 		const options = {
 			method: "POST",
@@ -291,7 +223,7 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 		};
 
 		const response = await fetch(url, options);
-		return await response.json();
+		return await response.json() as T
 	}
 
 	// Stream subscription with custom handling
@@ -305,7 +237,7 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 		eventTypes.forEach(eventType => {
 			eventSource.addEventListener(eventType, (event: MessageEvent) => {
 				try {
-					const parsedData = JSON.parse(event.data);
+					const parsedData = JSON.parse(event.data) as SSEEvent<T>
 					callback({
 						data: parsedData.data,
 						event: eventType
@@ -331,6 +263,89 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 			eventSource.close();
 		};
 	}
+	// --- VectorStore Methods ---
+
+	async embed(body: EmbedText): Promise<EmbedResponse> {
+		const response = await fetch(this.buildUrl("/v1/vector/embed"), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		return await response.json() as EmbedResponse
+	}
+
+	async upsertVectors(body: UpsertText): Promise<UpsertResponse> {
+		const response = await fetch(this.buildUrl("/v1/vector/upsert"), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		return await response.json() as UpsertResponse
+	}
+
+	async queryVectors(body: QueryText): Promise<QueryResponse> {
+		const response = await fetch(this.buildUrl("/v1/vector/query"), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		return await response.json() as QueryResponse
+	}
+
+	async deleteVectors(body: DeleteText): Promise<DeleteResponse> {
+		const response = await fetch(this.buildUrl("/v1/vector/delete"), {
+			method: "DELETE",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		return await response.json() as DeleteResponse
+	}
 }
 
-export type { CollectionType, CollectionMetadataType, Status, JsonSchema, QuipuActions, QuipubaseRequest };
+class Message extends BaseModel {
+	id?: string
+	role: "assistant" | "user" | "system"
+	content: string
+	createdAt: string
+
+	constructor(role: "assistant" | "user" | "system", content: string) {
+		super()
+		this.role = role
+		this.content = content
+		this.createdAt = new Date().toISOString()
+	}
+
+	static schema() {
+		return z.object({
+			id: z.string().optional(),
+			role: z.enum(["assistant", "user", "system"]),
+			content: z.string(),
+			createdAt: z.string(),
+		})
+	}
+}
+
+class Thread extends BaseModel {
+	id?: string
+	title: string
+	createdAt: string
+	updatedAt?: string
+	messages: Message[]
+
+	constructor(title: string, messages: Message[]) {
+		super()
+		this.title = title
+		this.createdAt = new Date().toISOString()
+		this.messages = messages
+	}
+
+	static schema() {
+		return z.object({
+			id: z.string().optional(),
+			title: z.string(),
+			createdAt: z.string(),
+			updatedAt: z.string().optional(),
+			messages: z.array(Message.schema()),
+		})
+	}
+}
