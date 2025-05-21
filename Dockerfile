@@ -21,6 +21,6 @@ RUN python -m pip install --upgrade pip && \
     python -m pip install -r requirements.txt
 
 
-EXPOSE 5431
+EXPOSE 5454
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5454","--reload"]

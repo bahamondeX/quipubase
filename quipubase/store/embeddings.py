@@ -19,13 +19,14 @@ Dependencies:
 """
 
 import typing as tp
-import numpy as np
+
 import faiss  # type: ignore
+import numpy as np
 import typing_extensions as tpx
 from light_embed import TextEmbedding  # type: ignore
 from numpy.typing import NDArray
 
-from .typedefs import QueryMatch, Embedding
+from .typedefs import Embedding, QueryMatch
 
 Texts: tpx.TypeAlias = tp.Union[str, list[str]]
 EmbeddingModel: tpx.TypeAlias = tp.Literal["poly-sage", "deep-pulse", "mini-scope"]

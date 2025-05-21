@@ -117,6 +117,9 @@ class VectorStore(tp.Hashable):
         """
         return Embedding.retrieve(id=id, namespace=self.namespace)
 
+    def scan(self) -> tp.List[Embedding]:
+        return list(Embedding.scan(namespace=self.namespace))
+
     def delete(self, ids: list[str]) -> DeleteResponse:
         """
         Delete embeddings by IDs.

@@ -1,10 +1,11 @@
 import time
+
 import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..store import (DeleteResponse, Embedding, EmbeddingModel, QueryResponse,
-                     UpsertResponse, VectorStore)
+from ..store import (DeleteResponse, Embedding, EmbeddingModel, EmbedResponse,
+                     QueryResponse, UpsertResponse, VectorStore)
 
 
 class EmbedText(BaseModel):
@@ -94,19 +95,19 @@ def store_router() -> APIRouter:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/embed")
+    @app.post("/embed", response_model=EmbedResponse)
     async def _(data: EmbedText):
         start = time.perf_counter()
         vs = VectorStore(namespace="default", model=data.model)
         embeddings: list[list[float]] = vs.embed(data.content).tolist()
         end = time.perf_counter()
-        return {
-            "data": [
+        return EmbedResponse(
+            data=[
                 Embedding(content=c, embedding=np.array(e).astype(np.float32))
                 for c, e in zip(data.content, embeddings)
             ],
-            "created": end - start,
-            "embedCount": len(embeddings),
-        }
+            created=end - start,
+            embedCount=len(embeddings),
+        )
 
     return app

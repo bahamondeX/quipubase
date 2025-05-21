@@ -1,35 +1,56 @@
 import "reflect-metadata";
-import { z, ZodType } from "zod";
+import { z, type ZodTypeAny } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 export abstract class BaseModel {
-	static schema(): ZodType<any> {
+	id!: string
+	public constructor(data?: Partial<z.infer<ReturnType<typeof BaseModel.schema>>>) {
+		const cls = this.constructor as typeof BaseModel;
+		const schema = cls.schema();
+		const result = schema.parse(data ?? {});
+		Object.assign(this, result);
+	}
+
+	public static schema(): ZodTypeAny {
 		throw new Error("Must implement schema()");
 	}
 
-	static jsonSchema() {
-		return zodToJsonSchema((this as any).schema());
+	public static jsonSchema() {
+		// 'this' here refers to the class constructor (e.g., 'User' or 'Product')
+		// So, 'this.name' will be "User" or "Product"
+		return {
+			...zodToJsonSchema(this.schema()),
+			title: this.name // This correctly gets the class name
+		};
 	}
+
 	static safeParse<T extends typeof BaseModel>(
 		this: T,
 		data: unknown
 	): { success: true; data: InstanceType<T> } | { success: false; error: z.ZodError } {
 		const result = this.schema().safeParse(data);
 		if (result.success) {
-			// @ts-ignore
-			const instance = new this() as InstanceType<T>;
-			Object.assign(instance, result.data);
+			const instance = new (this as any)(result.data) as InstanceType<T>;
 			return { success: true, data: instance };
-		} else {
-			return result;
 		}
+		return result;
 	}
 
 	toJSON() {
 		return JSON.stringify({ ...this });
 	}
-}
 
+	toDict() {
+		return { ...this }
+	}
+
+
+	static from<T extends BaseModel>(this: new () => T, data: Partial<T>): T {
+		const instance = new this()
+		Object.assign(instance, data)
+		return instance
+	}
+}
 export type QuipuActions = "create" | "read" | "update" | "delete" | "query" | "stop";
 
 export type EmbedModel = "poly-sage" | "deep-pulse" | "mini-scope";
@@ -91,43 +112,43 @@ export type DeleteResponse = {
 export type JsonSchemaPrimitive = {
 	title?: string
 	name?: string
-    type: "string" | "number" | "integer" | "boolean" | "binary" | "null"
-    format?: "date-time" | "base64" | "binary" | "uuid" | "email" | "hostname" | "ipv4" | "ipv6" | "uri" | "uri-reference"
+	type: "string" | "number" | "integer" | "boolean" | "binary" | "null"
+	format?: "date-time" | "base64" | "binary" | "uuid" | "email" | "hostname" | "ipv4" | "ipv6" | "uri" | "uri-reference"
 	default?: any
-    description?: string
-    required?: boolean
-    readOnly?: boolean
-    writeOnly?: boolean
+	description?: string
+	required?: boolean
+	readOnly?: boolean
+	writeOnly?: boolean
 	examples?: any[]
 	enum?: any[]
-    nullable?: boolean    
+	nullable?: boolean
 }
 
 export type JsonSchemaObject = {
 	title?: string
 	name?: string
-    type: "object"
+	type: "object"
 	properties: Record<string, JsonSchema>
-    required?: string[]
-    nullable?: boolean
+	required?: string[]
+	nullable?: boolean
 }
 
 export type JsonSchemaArray = {
 	title?: string
 	name?: string
-    type: "array"
+	type: "array"
 	items: JsonSchema
 	anyOf?: (JsonSchemaPrimitive | JsonSchemaObject)[]
 	oneOf?: (JsonSchemaPrimitive | JsonSchemaObject)[]
 	allOf?: (JsonSchemaPrimitive | JsonSchemaObject)[]
-    nullable?: boolean
+	nullable?: boolean
 }
 
 export type JsonSchema = JsonSchemaPrimitive | JsonSchemaObject | JsonSchemaArray
 
 
 export type DeleteReturnType = {
-	code:number 
+	code: number
 };
 
 export type CollectionMetadataType = {
@@ -141,6 +162,12 @@ export type CollectionType = {
 	schema: JsonSchema;
 };
 
+export type ChunkFileResponse = {
+	chunks: string[];
+	created: number;
+	chunkedCount: number;
+}
+
 export type QuipubaseRequest<T> = {
 	event: QuipuActions;
 	id?: string | null;
@@ -149,34 +176,36 @@ export type QuipubaseRequest<T> = {
 
 
 export type SSEEvent<T extends BaseModel> = {
-	data: T;
+	data: T | Array<T>;
 	event: "create" | "read" | "update" | "delete" | "query" | "stop";
 };
 
 
 export class QuipuBase<T extends BaseModel> {
+	baseUrl: string
 	constructor(
-		public baseUrl: string = "http://localhost:5454",
-	) { }
+		baseUrl: string = "http://localhost:5454",
+	) {
+		this.baseUrl = baseUrl
+
+	}
 
 	buildUrl(endpoint: string, id?: string): string {
 		return `${this.baseUrl}${endpoint}${id ? `/${id}` : ""}`;
 	}
 
 	// Collection Management
-	async createCollection(data: T): Promise<CollectionType> {
+	async createCollection(data: typeof BaseModel): Promise<CollectionType> {
 		const url = this.buildUrl("/v1/collections");
-		const collectionData = {
-			// @ts-ignore
-			schema: data.schema()
-		};
+
 
 		const options = {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify(collectionData),
+			body: JSON.stringify(data.jsonSchema()
+			),
 		};
 
 		const response = await fetch(url, options);
@@ -202,12 +231,9 @@ export class QuipuBase<T extends BaseModel> {
 		return await response.json() as DeleteReturnType;
 	}
 
-	async listCollections(limit: number = 100, offset: number = 0): Promise<CollectionMetadataType[]> {
-		const params = new URLSearchParams();
-		params.set("limit", limit.toString());
-		params.set("offset", offset.toString());
+	async listCollections(): Promise<CollectionMetadataType[]> {
 
-		const url = `${this.buildUrl("/v1/collections")}?${params.toString()}`;
+		const url = this.buildUrl("/v1/collections");
 		const response = await fetch(url);
 		return await response.json() as CollectionMetadataType[];
 	}
@@ -228,37 +254,27 @@ export class QuipuBase<T extends BaseModel> {
 
 	// Stream subscription with custom handling
 
-	async subscribeToEvents(collectionId: string, callback: (chunk: SSEEvent<T>) => void): Promise<() => void> {
+	async subscribeToEvents(
+		collectionId: string,
+		callback: (chunk: SSEEvent<T>) => void
+	): Promise<() => void> {
 		const url = this.buildUrl("/v1/events", collectionId);
 		const eventSource = new EventSource(url);
+		eventSource.onmessage = (evt: MessageEvent) => {
+			try {
+				const { event, data } = JSON.parse(evt.data)
 
-		const eventTypes: QuipuActions[] = ["create", "read", "update", "delete", "query", "stop"];
-
-		eventTypes.forEach(eventType => {
-			eventSource.addEventListener(eventType, (event: MessageEvent) => {
-				try {
-					const parsedData = JSON.parse(event.data) as SSEEvent<T>
-					callback({
-						data: parsedData.data,
-						event: eventType
-					});
-
-					// If stop event is received, close the connection
-					if (eventType === 'stop') {
-						eventSource.close();
-					}
-				} catch (error) {
-					console.error(`Error parsing ${eventType} event:`, error);
-				}
-			});
-		});
+				callback({ event, data });
+			} catch (error) {
+				console.error(`Error parsing event:`, error);
+			}
+		};
 
 		eventSource.onerror = (error) => {
 			console.error("EventSource error:", error);
 			eventSource.close();
 		};
 
-		// Return a function to close the connection
 		return () => {
 			eventSource.close();
 		};
@@ -300,52 +316,12 @@ export class QuipuBase<T extends BaseModel> {
 		});
 		return await response.json() as DeleteResponse
 	}
-}
 
-class Message extends BaseModel {
-	id?: string
-	role: "assistant" | "user" | "system"
-	content: string
-	createdAt: string
-
-	constructor(role: "assistant" | "user" | "system", content: string) {
-		super()
-		this.role = role
-		this.content = content
-		this.createdAt = new Date().toISOString()
+	async chunkFile(file: File, format: "html" | "text"): Promise<ChunkFileResponse> {
+		const formData = new FormData()
+		formData.append("file", file)
+		const response = await fetch(this.buildUrl(`/v1/file?format=${format}`))
+		return await response.json() as ChunkFileResponse
 	}
 
-	static schema() {
-		return z.object({
-			id: z.string().optional(),
-			role: z.enum(["assistant", "user", "system"]),
-			content: z.string(),
-			createdAt: z.string(),
-		})
-	}
-}
-
-class Thread extends BaseModel {
-	id?: string
-	title: string
-	createdAt: string
-	updatedAt?: string
-	messages: Message[]
-
-	constructor(title: string, messages: Message[]) {
-		super()
-		this.title = title
-		this.createdAt = new Date().toISOString()
-		this.messages = messages
-	}
-
-	static schema() {
-		return z.object({
-			id: z.string().optional(),
-			title: z.string(),
-			createdAt: z.string(),
-			updatedAt: z.string().optional(),
-			messages: z.array(Message.schema()),
-		})
-	}
 }

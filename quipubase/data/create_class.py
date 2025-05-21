@@ -79,7 +79,7 @@ def create_class(*, schema: JsonSchemaModel):
                 Field(default=None),
             )
     return create_model(
-        f"{name}::{abs(hash(schema.model_dump_json()))}",
+        f"{name}::{abs(hash(json.dumps(schema.model_json_schema(),sort_keys=True)))}",
         __base__=Collection,
         **attributes,
     )

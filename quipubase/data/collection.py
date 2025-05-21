@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Iterator, Optional, Type, TypeVar
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import orjson
 from pydantic import BaseModel, Field  # pylint: disable=W0611
@@ -72,12 +72,13 @@ class Collection(BaseModel):
             Initialize the collection by creating necessary directories and files.
     """
 
-    id: Optional[UUID] = Field(default_factory=uuid4)
+    id: Optional[str] = Field(default_factory=lambda: str(uuid4()))
 
+   
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
         if self.id is None:
-            self.id = uuid4()
+            self.id = str(uuid4())
 
     def __repr__(self):
         return self.model_dump_json(indent=4)
@@ -153,9 +154,9 @@ class Collection(BaseModel):
         return opt
 
     @classmethod
-    def retrieve(cls: Type[T], *, id: UUID) -> Optional[T]:  # pylint: disable=W0622
+    def retrieve(cls: Type[T], *, id: str) -> Optional[T]:  # pylint: disable=W0622
         """Retrieve a single record by ID."""
-        raw_data = cls.col().get(id.bytes)
+        raw_data = cls.col().get(id)
         if raw_data is None:
             return None
         json_data = orjson.loads(raw_data)  # pylint: disable=E1101
@@ -164,18 +165,18 @@ class Collection(BaseModel):
     def create(self) -> None:
         """Save/update the record in the database."""
         if self.id is None:
-            self.id = uuid4()
+            self.id = str(uuid4())
         data = self.model_dump_json(exclude_none=True).encode("utf-8")
-        self.col().put(self.id.bytes, data)  # pylint: disable=E1101
+        self.col().put(self.id, data)  # pylint: disable=E1101
         assert (
-            self.col().get(self.id.bytes) == data  # pylint: disable=E1101
+            self.col().get(self.id) == data  # pylint: disable=E1101
         ), f"Failed to persist record {self.id}"
 
     @classmethod
-    def delete(cls, *, id: UUID) -> bool:  # pylint: disable=W0622
+    def delete(cls, *, id: str) -> bool:  # pylint: disable=W0622
         """Delete a record by ID."""
         try:
-            cls.col().delete(id.bytes)
+            cls.col().delete(id)
             return True
         except KeyError:
             return False
@@ -217,7 +218,7 @@ class Collection(BaseModel):
 
     @classmethod
     def update(
-        cls: Type[T], *, id: UUID, **kwargs: Any
+        cls: Type[T], *, id: str, **kwargs: Any
     ) -> Optional[T]:  # pylint: disable=W0622
         """Update specific fields of a record by ID."""
         # Get the current record

@@ -70,11 +70,11 @@ def pubsub_router() -> APIRouter:
             klass = col_manager.retrieve_collection(collection_id)
             pubsub = PubSub[klass]()
 
-            async def event_generator() -> AsyncIterator[dict[str, object]]:
+            async def event_generator() -> AsyncIterator[str]:
                 async for event in pubsub.sub(channel=collection_id):
                     if await request.is_disconnected() or event.event == "stop":
                         break
-                    yield event.model_dump()
+                    yield event.model_dump_json()
 
             return EventSourceResponse(content=event_generator(), ping=10)
         except Exception as e:

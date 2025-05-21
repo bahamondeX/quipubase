@@ -1,3 +1,3 @@
-from .client import Collection, QuipuBase
+from .client import AsyncQuipuBase, QuipuBase
 
-__all__ = ["QuipuBase", "Collection"]
+__all__ = ["QuipuBase", "AsyncQuipuBase"]

@@ -16,6 +16,12 @@ sse-starlette = "^2.3.3"
 light-embed = "^1.0.7"
 uvicorn = {extras = ["standard"], version = "^0.34.2"}
 aioredis = "^2.0.1"
+httpx = "^0.28.1"
+python-dotenv = "^1.1.0"
+openai = "^1.79.0"
+anydocs = {git = "https://github.com/bahamondex/anydocs.git"}
+cbase64 = "^0.0.9"
+python-multipart = "^0.0.20"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"

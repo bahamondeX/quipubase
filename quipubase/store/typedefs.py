@@ -59,7 +59,7 @@ class Embedding(BaseModel):
     @field_serializer("embedding")
     @classmethod
     def serialize_embedding(cls, v: tp.Any):
-        if isinstance(v,np.ndarray):
+        if isinstance(v, np.ndarray):
             return v.tolist()
 
     @field_validator("embedding", mode="before")
@@ -118,6 +118,7 @@ class QueryMatch(BaseModel):
         content (str): Text content of the matched item
         embedding (NDArray[np.float32]): Vector representation of the matched item
     """
+
     model_config = {
         "arbitrary_types_allowed": True,
         "json_encoders": {
@@ -128,6 +129,7 @@ class QueryMatch(BaseModel):
 
     score: float
     content: str
+
 
 class SemanticContent(tpe.TypedDict):
     """
@@ -179,3 +181,9 @@ class DeleteResponse(tpe.TypedDict):
 
     embeddings: list[str]
     deletedCount: int
+
+
+class EmbedResponse(tpe.TypedDict):
+    data: list[Embedding]
+    created: float
+    embedCount: int
