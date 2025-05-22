@@ -87,7 +87,7 @@ class Collection(BaseModel):
         return self.__repr__()
 
     @classmethod
-    def col(cls) -> Rdict:
+    def db(cls) -> Rdict:
         """Get or create a RocksDB instance for this collection."""
         return Rdict(cls.col_path(), cls.options())
 
@@ -104,12 +104,7 @@ class Collection(BaseModel):
     @classmethod
     def col_json_schema(cls) -> JsonSchemaModel:
         """Create a schema for this collection"""
-        data = cls.model_json_schema()
-        path = Path(os.path.join(cls.col_path(), "schema.json"))
-        if not path.exists():
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            path.write_text(json.dumps(data, sort_keys=True))
-        return JsonSchemaModel(**data)
+        return JsonSchemaModel(**cls.model_json_schema())
 
     @classmethod
     def cpu_count(cls):
@@ -154,11 +149,11 @@ class Collection(BaseModel):
         return opt
 
     @classmethod
-    def retrieve(cls: Type[T], *, id: str) -> Optional[T]:  # pylint: disable=W0622
+    def retrieve(cls: Type[T], *, id: str) -> T:  # pylint: disable=W0622
         """Retrieve a single record by ID."""
-        raw_data = cls.col().get(id)
+        raw_data = cls.db().get(id)
         if raw_data is None:
-            return None
+            raise KeyError(f"Record {id} not found")
         json_data = orjson.loads(raw_data)  # pylint: disable=E1101
         return cls.model_validate(json_data)
 
@@ -167,16 +162,16 @@ class Collection(BaseModel):
         if self.id is None:
             self.id = str(uuid4())
         data = self.model_dump_json(exclude_none=True).encode("utf-8")
-        self.col().put(self.id, data)  # pylint: disable=E1101
+        self.db().put(self.id, data)  # pylint: disable=E1101
         assert (
-            self.col().get(self.id) == data  # pylint: disable=E1101
+            self.db().get(self.id) == data  # pylint: disable=E1101
         ), f"Failed to persist record {self.id}"
 
     @classmethod
     def delete(cls, *, id: str) -> bool:  # pylint: disable=W0622
         """Delete a record by ID."""
         try:
-            cls.col().delete(id)
+            cls.db().delete(id)
             return True
         except KeyError:
             return False
@@ -196,8 +191,7 @@ class Collection(BaseModel):
         Yields:
             Matching model instances
         """
-        db = cls.col()
-        riter = db.iter()
+        riter = cls.db().iter()
         riter.seek_to_first()
 
         # Saltar offset inicial
@@ -223,9 +217,6 @@ class Collection(BaseModel):
         """Update specific fields of a record by ID."""
         # Get the current record
         record = cls.retrieve(id=id)
-        if record is None:
-            return None
-
         # Update the fields
         record_dict = record.model_dump()
         for field_name, new_value in kwargs.items():
@@ -240,11 +231,14 @@ class Collection(BaseModel):
 
     @classmethod
     def init(cls):
-        """Initialize the collection."""
+        data = cls.model_json_schema()
         if not os.path.exists(cls.col_path()):
-            os.makedirs(cls.col_path())
-            path = Path(cls.col_path()) / "README.md"
-            path.write_text(cls.__doc__ or "")
+            os.makedirs(cls.col_path(), exist_ok=True)
+        schema_json_path = Path(cls.col_path()) / "schema.json"
+        schema_json_path.write_text(json.dumps(data, sort_keys=True))
+        readme_path = Path(cls.col_path()) / "README.md"
+        readme_path.write_text(cls.model_json_schema().get("description") or cls.__doc__ or "")
+
 
 
 Collection.model_rebuild()

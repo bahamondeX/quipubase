@@ -1,33 +1,29 @@
+# docker-compose.yml
+
 services:
   db:
+    container_name: db
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
       - ./:/app
+      # **IMPORTANT**: Mount your service account key here
+      # Replace /path/to/your/service_account.json with the actual path on your host
+      # This example assumes the key is in your project root, named service_account.json
+      - ./service_account.json:/app/service_account.json:ro
+    environment:
+      # **IMPORTANT**: Set the GOOGLE_APPLICATION_CREDENTIALS environment variable
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/service_account.json
     ports:
       - 5454:5454
     networks:
       - default
-
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    ports:
-      - 9000:9000   # API
-      - 9001:9001   # Console
-    volumes:
-      - minio_data:/data
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: admin1234
-    command: server /data --console-address ":9001"
-    networks:
-      - default
+    # --- ADD THIS SECTION ---
+    devices:
+      - /dev/fuse:/dev/fuse
+    # --- END ADDITION ---
 
 networks:
   default:
     driver: bridge
-
-volumes:
-  minio_data:

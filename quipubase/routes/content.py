@@ -8,6 +8,6 @@ def content_router():
 	content = APIRouter(tags=["file"],prefix="/file")
 	@content.post("",response_model=ContentResponse)
 	async def _(format:tp.Literal["html","text"],file:UploadFile=File(...)):
-		return await cs.run(file,format)
+		return await cs.run(file,format) # type: ignore
 	return content
 

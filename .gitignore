@@ -21,7 +21,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
+service_account.json
 # Unit test / coverage reports
 htmlcov/
 .tox/

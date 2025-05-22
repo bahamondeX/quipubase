@@ -8,9 +8,11 @@ VENV = .venv
 PYTHONDONTWRITEBYTECODE = 1
 # Application settings
 APP_MODULE = main:app
+APP_NAME = quipubase
 HOST = 0.0.0.0
 PORT = 5454
 WORKERS = 4
+	
 
 # Install dependencies
 install:
@@ -68,14 +70,14 @@ format:
 # Build package distribution
 build:
 	$(POETRY) build
+	docker build -t $(APP_NAME) .
 
-# Generate documentation
-docs:
-	$(POETRY) run sphinx-build -b html docs/source docs/build/html
+requirements:
+	$(POETRY) export --without-hashes > requirements.txt
 
-# Export dependencies to requirements.txt
-export-requirements:
-	$(POETRY) export -f requirements.txt --output requirements.txt --without-hashes
+deploy:
+	docker compose up -d --build --remove-orphans --force-recreate
+
 
 # Default target
 all: install test
@@ -95,4 +97,4 @@ help:
 	@echo "  format                - Format code with ruff"
 	@echo "  build                 - Build package distribution"
 	@echo "  docs                  - Generate documentation"
-	@echo "  export-requirements   - Export dependencies to requirements.txt"
+	@echo "  requirements		   - Export dependencies to requirements.txt"

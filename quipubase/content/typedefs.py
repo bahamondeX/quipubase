@@ -4,3 +4,4 @@ class ContentResponse(BaseModel):
 	chunks:list[str]
 	created:float
 	chunkedCount:int
+

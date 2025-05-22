@@ -1,8 +1,8 @@
 # In typedefs.py
 from typing import Any, Dict, Literal, Optional, TypeAlias
 
-from pydantic import BaseModel, Field, InstanceOf
-from typing_extensions import NotRequired, TypedDict
+from pydantic import BaseModel, Field
+from typing_extensions import NotRequired, TypedDict, Required
 
 # Define QuipuActions as a type alias for a set of string literals
 QuipuActions: TypeAlias = Literal["create", "read", "update", "delete", "query", "stop"]
@@ -13,20 +13,20 @@ class JsonSchemaModel(BaseModel):
     """JSON Schema representation"""
 
     model_config = {"extra": "allow"}
-    title: str = Field(...)
-    type: str = Field(default="object")
-    properties: Dict[str, Any] = Field(...)
-   
+    title: str = Field(..., examples=["Task"])
+    type: str = Field(default="object",examples=["object"])
+    properties: Dict[str, Any] = Field(...,examples=[{"done":{"type":"boolean"},"title":{"type":"string"},"description":{"type":"string"}}])
+    required:list[str] = Field(...,examples=[["title","done"]])
 
 # Keep TypedDict version if needed elsewhere
-class JsonSchema(TypedDict):
+class JsonSchema(TypedDict,total=False):
     """JSON Schema representation"""
 
-    title: str
+    title: NotRequired[str]
     description: NotRequired[str]
-    type: str
-    properties: Dict[str, Any]
-    enum: NotRequired[list[Any]]
+    type: Required[str]
+    properties: Required[Dict[str, Any]]
+    required: NotRequired[list[str]]
 
 class CollectionType(TypedDict):
     id: str
@@ -41,13 +41,6 @@ class CollectionMetadataType(TypedDict):
 
 class DeleteCollectionReturnType(TypedDict):
     code: int
-
-
-class PubReturnType(TypedDict):
-    collection: str
-    data: InstanceOf[BaseModel]
-    event: QuipuActions
-
 
 class QuipubaseRequest(BaseModel):
     event: QuipuActions = Field(default="query")

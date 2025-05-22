@@ -1,6 +1,6 @@
 from .collection import Collection
 from .collection_manager import CollectionManager
 from .create_class import create_class
-from .event import EventType
+from .responses import EventType, PubType
 
-__all__ = ["create_class", "EventType", "CollectionManager", "Collection"]
+__all__ = ["create_class", "EventType", "CollectionManager", "Collection","PubType"]

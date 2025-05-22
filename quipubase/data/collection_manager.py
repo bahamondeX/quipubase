@@ -108,6 +108,7 @@ class CollectionManager:
         """Create a new collection"""
         try:
             klass = create_class(schema=data)
+            klass.init()
             return {
                 "name": klass.__name__,
                 "id": klass.col_id(),

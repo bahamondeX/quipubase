@@ -1,5 +1,4 @@
 import typing as tp
-
 from pydantic import BaseModel
 
 from ..models.typedefs import QuipuActions
@@ -12,4 +11,9 @@ class EventType(BaseModel, tp.Generic[T]):
     """Event model"""
 
     event: QuipuActions
-    data: T | None
+    data: T | list[T] | None
+
+class PubType(BaseModel, tp.Generic[T]):
+    collection: str
+    data: T | list[T]
+    event: QuipuActions
