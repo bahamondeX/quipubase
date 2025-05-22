@@ -109,7 +109,6 @@ class EmbeddingService(tp.NamedTuple):
                 0, 768 if self.model != "mini-scope" else 384
             )
         return semantic
-        raise ValueError(f"Unsupported semantic input type: {type(semantic)}")
 
     def search(
         self,

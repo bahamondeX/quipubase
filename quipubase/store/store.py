@@ -167,5 +167,5 @@ class VectorStore(tp.Hashable):
             >>> response = store.query(query_vector, top_k=5)
         """
         corpus = list(Embedding.scan(namespace=self.namespace))
-        matches = self.service.search(query_vector, corpus)
+        matches = self.service.search(query_vector, corpus,top_k)
         return QueryResponse(matches=matches, readCount=len(matches))

@@ -18,8 +18,8 @@ Dependencies:
 - rocksdict: For persistent storage
 """
 
+import os
 import typing as tp
-from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
@@ -73,7 +73,10 @@ class Embedding(BaseModel):
 
     @classmethod
     def db(cls, *, namespace: str):
-        return Rdict(str(Path.home() / ".vector" / namespace))
+        os.makedirs("/app/data/embeddings", exist_ok=True)
+        if not os.path.exists("/app/data/embeddings/"+namespace):
+            os.makedirs("/app/data/embeddings/"+namespace, exist_ok=True)
+        return Rdict("/app/data/embeddings/"+namespace)
 
     @classmethod
     def retrieve(cls, *, id: str, namespace: str):
