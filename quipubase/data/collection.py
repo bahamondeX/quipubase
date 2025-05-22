@@ -74,7 +74,6 @@ class Collection(BaseModel):
 
     id: Optional[str] = Field(default_factory=lambda: str(uuid4()))
 
-   
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
         if self.id is None:
@@ -94,7 +93,7 @@ class Collection(BaseModel):
     @classmethod
     def col_path(cls):
         """The absolute path to the collection directory."""
-        home_dir = Path("/app/data").as_posix()
+        home_dir = Path("/app/data/colllections").as_posix()
         if not os.path.exists(os.path.join(home_dir, cls.col_id())):
             os.makedirs(os.path.join(home_dir, cls.col_id()), exist_ok=True)
         return os.path.join(home_dir, cls.col_id())
@@ -240,7 +239,6 @@ class Collection(BaseModel):
         schema_json_path.write_text(json.dumps(data, sort_keys=True))
         readme_path = Path(cls.col_path()) / "README.md"
         readme_path.write_text(cls.model_json_schema().get("description") or cls.__doc__ or "")
-
 
 
 Collection.model_rebuild()

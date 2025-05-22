@@ -22,7 +22,7 @@ class CollectionManager:
 
     def retrieve_collection(self, collection_id: str) -> Type[Collection]:
         """Get or create a collection class for a given collection ID"""
-        for data_dir in Path("/app/data").iterdir():
+        for data_dir in Path("/app/data/colllections").iterdir():
             if not data_dir.is_dir():
                 continue
             if data_dir.as_posix().split("/")[-1] == collection_id:
@@ -36,7 +36,7 @@ class CollectionManager:
     def get_json_schema(self, collection_id: str) -> JsonSchemaModel:
         """Get the JSON schema for a collection ID"""
         # Check in .data directory
-        data_dir = os.path.join("/app/data")
+        data_dir = os.path.join("/app/data/colllections")
         if not os.path.exists(data_dir):
             raise HTTPException(
                 status_code=404,
@@ -70,7 +70,7 @@ class CollectionManager:
 
     def list_collections(self) -> Generator[CollectionMetadataType, None, None]:
         """List all collections in the data directory"""
-        data_dir = os.path.join("/app/data")
+        data_dir = os.path.join("/app/data/colllections")
         if not os.path.exists(data_dir):
             os.makedirs(data_dir, exist_ok=True)
         for directory in os.listdir(data_dir):
@@ -94,7 +94,7 @@ class CollectionManager:
 
     def delete_collection(self, *, col_id: str) -> DeleteCollectionReturnType:
         try:
-            path = Path("/app/data")
+            path = Path("/app/data/colllections")
             shutil.rmtree(path)
             return {"code": 0}
         except HTTPException as e:
