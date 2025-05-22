@@ -3,7 +3,7 @@ set -euo pipefail
 
 # CONFIGURACIÓN
 BUCKET_NAME="quipubase-store"  # Reemplaza por el nombre de tu bucket
-LOCAL_DIR="${HOME}/.data"
+LOCAL_DIR="/app/data"
 SERVICE_ACCOUNT_KEY_PATH="/app/service_account.json" # Path INSIDE THE CONTAINER
 
 # CREAR DIRECTORIO LOCAL SI NO EXISTE
