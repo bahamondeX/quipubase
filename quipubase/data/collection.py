@@ -95,8 +95,8 @@ class Collection(BaseModel):
     def col_path(cls):
         """The absolute path to the collection directory."""
         home_dir = Path("/app/data").as_posix()
-        if not os.path.exists(home_dir):
-            os.makedirs(home_dir, exist_ok=True)
+        if not os.path.exists(os.path.join(home_dir, cls.col_id())):
+            os.makedirs(os.path.join(home_dir, cls.col_id()), exist_ok=True)
         return os.path.join(home_dir, cls.col_id())
 
     @classmethod
