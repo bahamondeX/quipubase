@@ -1,5 +1,7 @@
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from .data import Collection
@@ -42,4 +44,11 @@ def create_app():
     app.include_router(auth_router(), prefix="/v1")
     app.include_router(content_router(),prefix="/v1")
 
+    @app.get("/", include_in_schema=False)
+    def _():
+        return HTMLResponse(Path("index.html").read_text())
+
+    @app.get("/favicon.svg", include_in_schema=False)
+    def _():
+        return HTMLResponse(Path("favicon.svg").read_text())
     return app

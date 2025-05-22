@@ -80,6 +80,10 @@ clean:
 docs:
 	$(POETRY) run mkdocs build
 
+
+openapi:
+	curl http://localhost:8080/openapi.json > openapi.json
+
 # ─────────────────────────────────────────────────────────────
 # Utility
 # ─────────────────────────────────────────────────────────────
