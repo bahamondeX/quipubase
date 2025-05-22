@@ -1,100 +1,104 @@
-.PHONY: install dev test clean start stop restart lint build
+.PHONY: install run dev test test-file clean start stop restart lint format build requirements deploy docs help all
 
-# Python interpreter and Poetry paths
-# Poetry python path
-PYTHON = $(shell poetry env info -p)/bin/python	
+# ─────────────────────────────────────────────────────────────
+# Configuration
+# ─────────────────────────────────────────────────────────────
 POETRY = poetry
+PYTHON = $(shell $(POETRY) env info -p)/bin/python
+APP_NAME = quipubase
+APP_MODULE = main:app
+HOST = 0.0.0.0
+PORT = 8080
+WORKERS = 4
 VENV = .venv
 PYTHONDONTWRITEBYTECODE = 1
-# Application settings
-APP_MODULE = main:app
-APP_NAME = quipubase
-HOST = 0.0.0.0
-PORT = 5454
-WORKERS = 4
-	
 
-# Install dependencies
+UVICORN_OPTS = --host $(HOST) --port $(PORT) --workers $(WORKERS) --reload
+
+# ─────────────────────────────────────────────────────────────
+# Dependency Management
+# ─────────────────────────────────────────────────────────────
 install:
 	$(POETRY) install
 
-# Install development dependencies
 run:
 	$(POETRY) install --with dev
-
-# Run tests with pytest
-test:
-	$(POETRY) run pytest -xvs
-
-# Run specific test file
-test-file:
-	$(POETRY) run pytest -xvs $(FILE)
-
-# Clean up cache files and temporary data
-clean:
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type d -name .pytest_cache -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
-	find . -type f -name "*.pyd" -delete
-	find . -type f -name ".coverage" -delete
-	find . -type d -name "*.egg-info" -exec rm -rf {} +
-	find . -type d -name "*.egg" -exec rm -rf {} +
-	find . -type d -name ".eggs" -exec rm -rf {} +
-	find . -type d -name "*.dist-info" -exec rm -rf {} +
-	rm -rf dist build .coverage htmlcov
-
-# Start the application with Uvicorn
-start:
-	$(PYTHON) -m uvicorn $(APP_MODULE) --host $(HOST) --port $(PORT) --workers $(WORKERS) --reload
-
-# Start in development mode
-dev:
-	$(PYTHON) -m uvicorn $(APP_MODULE) --host $(HOST) --port $(PORT) --workers $(WORKERS) --reload
-
-# Stop the application (find and kill Uvicorn processes)
-stop:
-	-pkill -f "uvicorn $(APP_MODULE)"
-
-# Restart the application
-restart: stop start
-
-# Run linting checks
-lint:
-	$(POETRY) run ruff check .
-
-# Format code
-format:
-	$(POETRY) run ruff format .
-
-# Build package distribution
-build:
-	$(POETRY) build
-	docker build -t $(APP_NAME) .
 
 requirements:
 	$(POETRY) export --without-hashes > requirements.txt
 
+# ─────────────────────────────────────────────────────────────
+# Development
+# ─────────────────────────────────────────────────────────────
+dev:
+	$(PYTHON) -m uvicorn $(APP_MODULE) $(UVICORN_OPTS)
+
+start:
+	$(PYTHON) -m uvicorn $(APP_MODULE) $(UVICORN_OPTS)
+
+stop:
+	-pkill -f "uvicorn $(APP_MODULE)"
+
+restart: stop start
+
+# ─────────────────────────────────────────────────────────────
+# Testing & Quality
+# ─────────────────────────────────────────────────────────────
+test:
+	$(POETRY) run pytest -xvs
+
+test-file:
+	$(POETRY) run pytest -xvs $(FILE)
+
+lint:
+	$(POETRY) run ruff check .
+
+format:
+	$(POETRY) run ruff format .
+
+# ─────────────────────────────────────────────────────────────
+# Build & Deployment
+# ─────────────────────────────────────────────────────────────
+build:
+	$(POETRY) build
+	docker build -t $(APP_NAME) .
+
 deploy:
 	docker compose up -d --build --remove-orphans --force-recreate
 
+# ─────────────────────────────────────────────────────────────
+# Maintenance
+# ─────────────────────────────────────────────────────────────
+clean:
+	find . -type d \( -name '__pycache__' -o -name '.pytest_cache' -o -name '*.egg-info' -o -name '.eggs' -o -name '*.dist-info' \) -print0 | xargs -0 rm -rf
+	find . -type f \( -name "*.pyc" -o -name "*.pyo" -o -name "*.pyd" -o -name ".coverage" \) -delete
+	rm -rf dist build htmlcov
 
-# Default target
+# ─────────────────────────────────────────────────────────────
+# Documentation
+# ─────────────────────────────────────────────────────────────
+docs:
+	$(POETRY) run mkdocs build
+
+# ─────────────────────────────────────────────────────────────
+# Utility
+# ─────────────────────────────────────────────────────────────
 all: install test
 
 help:
 	@echo "Available targets:"
-	@echo "  install               - Install dependencies using Poetry"
-	@echo "  dev                   - Install development dependencies"
-	@echo "  test                  - Run tests with pytest"
-	@echo "  test-file FILE=path   - Run specific test file"
-	@echo "  clean                 - Clean up cache files and temporary data"
-	@echo "  start                 - Start the application with Uvicorn"
-	@echo "  dev           - Start in development mode with auto-reload"
-	@echo "  stop                  - Stop the application"
-	@echo "  restart               - Restart the application"
-	@echo "  lint                  - Run linting checks"
-	@echo "  format                - Format code with ruff"
-	@echo "  build                 - Build package distribution"
-	@echo "  docs                  - Generate documentation"
-	@echo "  requirements		   - Export dependencies to requirements.txt"
+	@echo "  install             - Install dependencies using Poetry"
+	@echo "  run                 - Install with dev dependencies"
+	@echo "  dev                 - Start app in dev mode (hot reload)"
+	@echo "  start               - Start the application"
+	@echo "  stop                - Stop the application"
+	@echo "  restart             - Restart the application"
+	@echo "  test                - Run all tests with pytest"
+	@echo "  test-file FILE=...  - Run specific test file"
+	@echo "  lint                - Run linting checks (ruff)"
+	@echo "  format              - Auto-format code (ruff)"
+	@echo "  build               - Build Poetry & Docker distributions"
+	@echo "  requirements        - Export deps to requirements.txt"
+	@echo "  deploy              - Rebuild and redeploy containers"
+	@echo "  clean               - Remove cache & build artifacts"
+	@echo "  docs                - Build static documentation site"
