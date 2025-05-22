@@ -16,7 +16,7 @@ services:
       # **IMPORTANT**: Set the GOOGLE_APPLICATION_CREDENTIALS environment variable
       - GOOGLE_APPLICATION_CREDENTIALS=/app/service_account.json
     ports:
-      - 5454:5454
+      - 8080:8080
     networks:
       - default
     # --- ADD THIS SECTION ---
