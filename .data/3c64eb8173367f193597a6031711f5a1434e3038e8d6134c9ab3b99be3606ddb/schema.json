@@ -1,1 +1,0 @@
-{"properties": {"description": {"anyOf": [{"type": "string"}, {"type": "null"}], "default": null, "title": "Description"}, "done": {"title": "Done", "type": "boolean"}, "id": {"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Id"}, "title": {"title": "Title", "type": "string"}}, "required": ["done", "title"], "title": "Task::7001020709358633486", "type": "object"}
