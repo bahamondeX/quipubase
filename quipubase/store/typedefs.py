@@ -30,6 +30,8 @@ from pydantic import (BaseModel, Field, WithJsonSchema, field_serializer,
                       field_validator)
 from rocksdict import Rdict
 
+DIR:str = "/app/data"
+EMB:str = "/embeddings/"
 
 class Embedding(BaseModel):
     """
@@ -73,10 +75,10 @@ class Embedding(BaseModel):
 
     @classmethod
     def db(cls, *, namespace: str):
-        os.makedirs("/app/data/embeddings", exist_ok=True)
-        if not os.path.exists("/app/data/embeddings/" + namespace):
-            os.makedirs("/app/data/embeddings/" + namespace, exist_ok=True)
-        return Rdict("/app/data/embeddings/" + namespace)
+        os.makedirs(f"{DIR}/", exist_ok=True)
+        if not os.path.exists(f"{DIR}{EMB}{namespace}"):
+            os.makedirs(f"{DIR}{EMB}{namespace}", exist_ok=True)
+        return Rdict(f"{DIR}{EMB}{namespace}")
 
     @classmethod
     def retrieve(cls, *, id: str, namespace: str):

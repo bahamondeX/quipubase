@@ -9,7 +9,6 @@ T = tp.TypeVar("T", bound=Collection, covariant=True)
 
 class EventType(BaseModel, tp.Generic[T]):
     """Event model"""
-
     event: QuipuActions
     data: T | list[T] | None
 

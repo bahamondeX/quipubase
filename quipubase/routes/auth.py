@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 
 from ..auth import GithubAuthService, GoogleAuthService
 
+APP_URL:str = "http://localhost:3500"
 
 def auth_router():
     auth = APIRouter(tags=["auth"], prefix="/auth")
@@ -16,12 +17,12 @@ def auth_router():
     @auth.get("/{provider}", response_class=RedirectResponse)
     async def _(request:Request,code: tp.Optional[str]=Query(default=None), provider: tp.Literal["github", "google"]=Path(...)):
         if provider == 'github' and code:
-            redirect_url = request.cookies.get("redirect_url") or "http://localhost:3500"
+            redirect_url = request.cookies.get("redirect_url") or APP_URL
             res = await gh.run(code)
             query_params = {"name":res.userInfo.name,"sub":res.userInfo.sub,"picture":res.userInfo.picture,"access_token":res.tokenInfo.access_token}
             return RedirectResponse(url=f"{redirect_url}?{urlencode(query_params)}")
         if provider == 'google' and code:
-            redirect_url = request.cookies.get("redirect_url") or "http://localhost:3500"
+            redirect_url = request.cookies.get("redirect_url") or APP_URL
             res = await gg.run(code)
             query_params = {"name":res.userInfo.name,"sub":res.userInfo.sub,"picture":res.userInfo.picture,"access_token":res.tokenInfo.access_token}
             return RedirectResponse(url=f"{redirect_url}?{urlencode(query_params)}")
