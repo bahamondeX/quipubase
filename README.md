@@ -139,13 +139,14 @@
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// src/models.ts
+
 import { z } from "zod";
 import { BaseModel } from "./quipubase-sdk"; // Assuming your SDK is in quipubase-sdk.ts
 
 export class Task extends BaseModel {
-    title!: string;
-    description?: string;
-    done!: boolean;
+title!: string;
+description?: string;
+done!: boolean;
 
     static schema() {
         return z.object({
@@ -155,23 +156,26 @@ export class Task extends BaseModel {
             done: z.boolean().default(false),
         });
     }
+
 }</code></pre>
-                </div>
-                <h3 class="text-xl font-semibold mt-6 mb-3">2. Initialize the Client</h3>
-                <p>In your main application file (e.g., <code>src/index.ts</code>):</p>
-                <div class="code-block">
-                    <button class="copy-button">Copy</button>
-                    <pre><code>// src/index.ts or your main application file
+
+</div>
+<h3 class="text-xl font-semibold mt-6 mb-3">2. Initialize the Client</h3>
+<p>In your main application file (e.g., <code>src/index.ts</code>):</p>
+<div class="code-block">
+<button class="copy-button">Copy</button>
+<pre><code>// src/index.ts or your main application file
 import { QuipuBase } from "./quipubase-sdk";
 import { Task } from "./models";
 
 // Time to get our Quipubase client ready!
 const quipu = new QuipuBase&lt;Task&gt;("http://localhost:5454"); // Pop in your Quipubase instance URL here!</code></pre>
-                </div>
-                 <p class="mt-4 bg-sky-100 border-l-4 border-sky-500 text-sky-700 p-4 rounded-md">
-                    <strong>Heads up!</strong> Make sure you have the Quipubase SDK file (<code>quipubase-sdk.ts</code> or similar) in your project, containing the <code>BaseModel</code> and <code>QuipuBase</code> class definitions you provided.
-                </p>
-            </section>
+
+</div>
+<p class="mt-4 bg-sky-100 border-l-4 border-sky-500 text-sky-700 p-4 rounded-md">
+<strong>Heads up!</strong> Make sure you have the Quipubase SDK file (<code>quipubase-sdk.ts</code> or similar) in your project, containing the <code>BaseModel</code> and <code>QuipuBase</code> class definitions you provided.
+</p>
+</section>
 
             <section id="collections" class="content-section">
                 <h2 class="text-3xl font-semibold mb-6">Dynamic Collections Management: Your Data, Your Rules, All in Real-time. 🚀</h2>
@@ -182,71 +186,79 @@ const quipu = new QuipuBase&lt;Task&gt;("http://localhost:5454"); // Pop in your
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Let's see all our collections!
+
 async function listAllCollections() {
-    try {
-        const collections = await quipu.listCollections();
-        console.log("Here are all your Collections:", collections);
-    } catch (error) {
-        console.error("Oops! Couldn't list collections:", error);
-    }
+try {
+const collections = await quipu.listCollections();
+console.log("Here are all your Collections:", collections);
+} catch (error) {
+console.error("Oops! Couldn't list collections:", error);
+}
 }
 listAllCollections();</code></pre>
-                </div>
+
+</div>
 
                 <h3 class="text-xl font-semibold mt-6 mb-3">Create Collection</h3>
                 <p>Forget about strict, old-school schemas! You can whip up new collections on the fly using <code>jsonschema</code> (it's automatically made from your <code>zod</code> schema!). This lets your data models change right along with your AI. Talk about agile data modeling!</p>
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Let's make a new 'tasks' collection using our Task model!
+
 async function createTasksCollection() {
-    try {
-        const newCollection = await quipu.createCollection(Task);
-        console.log("Awesome! New 'tasks' collection created:", newCollection);
-    } catch (error) {
-        console.error("Darn! Failed to create collection:", error);
-    }
+try {
+const newCollection = await quipu.createCollection(Task);
+console.log("Awesome! New 'tasks' collection created:", newCollection);
+} catch (error) {
+console.error("Darn! Failed to create collection:", error);
+}
 }
 createTasksCollection();</code></pre>
-                </div>
+
+</div>
 
                 <h3 class="text-xl font-semibold mt-6 mb-3">Get Collection</h3>
                 <p>Need to dig into a specific collection? Just give us the ID! You'll get all the juicy details in a flash.</p>
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Grab the details for a specific collection
+
 async function getCollectionDetails(collectionId: string) {
-    try {
-        const collectionDetails = await quipu.getCollection(collectionId);
-        console.log(\`Here are the details for collection '\${collectionId}':\`, collectionDetails);
-    } catch (error) {
-        console.error(\`Uh oh! Couldn't get collection \${collectionId}:\`, error);
-    }
+try {
+const collectionDetails = await quipu.getCollection(collectionId);
+console.log(\`Here are the details for collection '\${collectionId}':\`, collectionDetails);
+} catch (error) {
+console.error(\`Uh oh! Couldn't get collection \${collectionId}:\`, error);
+}
 }
 // Try it out with one of your collection IDs from Quipubase!
 // getCollectionDetails("your-collection-id");</code></pre>
-                </div>
+
+</div>
 
                 <h3 class="text-xl font-semibold mt-6 mb-3">Delete Collection</h3>
                 <p>Time for a clean-up? Easily remove entire collections and their data when you don't need them anymore.</p>
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Let's delete a collection!
+
 async function deleteMyCollection(collectionId: string) {
-    try {
-        const result = await quipu.deleteCollection(collectionId);
-        if (result.code === 200) { // Assuming 200 is success, adjust if API returns different
-            console.log(\`Poof! Collection '\${collectionId}' deleted successfully!\`);
-        } else {
-            console.warn(\`Hmm, couldn't delete collection '\${collectionId}':\`, result);
-        }
-    } catch (error) {
-        console.error(\`Error deleting collection \${collectionId}:\`, error);
-    }
+try {
+const result = await quipu.deleteCollection(collectionId);
+if (result.code === 200) { // Assuming 200 is success, adjust if API returns different
+console.log(\`Poof! Collection '\${collectionId}' deleted successfully!\`);
+} else {
+console.warn(\`Hmm, couldn't delete collection '\${collectionId}':\`, result);
+}
+} catch (error) {
+console.error(\`Error deleting collection \${collectionId}:\`, error);
+}
 }
 // Give it a whirl with one of your collection IDs from Quipubase!
 // deleteMyCollection("your-collection-id");</code></pre>
-                </div>
-            </section>
+
+</div>
+</section>
 
             <section id="events" class="content-section">
                 <h2 class="text-3xl font-semibold mb-6">Real-time Events (Pub/Sub): Your AI's Instant Messenger! ⚡</h2>
@@ -257,56 +269,61 @@ async function deleteMyCollection(collectionId: string) {
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Send out a 'create' event for a brand new Task document!
+
 async function publishNewTask(collectionId: string) {
-    const newTask = new Task({ title: "Learn Quipubase SDK", done: false });
-    try {
-        const publishedTask = await quipu.publishEvent(collectionId, {
-            event: "create",
-            data: newTask.toDict(), // Send the plain object
-        });
-        console.log("New task sent out:", publishedTask);
-    } catch (error) {
-        console.error("Whoops! Failed to publish event:", error);
-    }
+const newTask = new Task({ title: "Learn Quipubase SDK", done: false });
+try {
+const publishedTask = await quipu.publishEvent(collectionId, {
+event: "create",
+data: newTask.toDict(), // Send the plain object
+});
+console.log("New task sent out:", publishedTask);
+} catch (error) {
+console.error("Whoops! Failed to publish event:", error);
+}
 }
 // Give it a shot with one of your collection IDs!
 // publishNewTask("your-collection-id");</code></pre>
-                </div>
+
+</div>
 
                 <h3 class="text-xl font-semibold mt-6 mb-3">Subscribe to Events</h3>
                 <p>Stay totally in the loop! Listen in on all the live action in your data. Your apps can react instantly as changes happen. This is how you build truly reactive AI!</p>
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Let's subscribe to events for a specific collection!
+
 async function subscribeToTaskEvents(collectionId: string) {
-    console.log(\`Getting ready to listen for events on collection '\${collectionId}'...\`);
-    const unsubscribe = await quipu.subscribeToEvents(collectionId, (event) => {
-        console.log(\`Got an event: \${event.event}\`, event.data);
-        // This is where your AI app can do its real-time magic!
-        if (event.event === "create" && event.data) {
-            // Assuming event.data is an object or array of objects matching Task structure
-            if (Array.isArray(event.data)) {
-                 event.data.forEach(itemData => {
-                    const createdTask = new Task(itemData as Partial&lt;Task&gt;);
-                    console.log("Yay! New Task created (from array):", createdTask);
-                 });
-            } else {
-                 const createdTask = new Task(event.data as Partial&lt;Task&gt;);
-                 console.log("Yay! New Task created:", createdTask);
-            }
-        }
-    });
+console.log(\`Getting ready to listen for events on collection '\${collectionId}'...\`);
+const unsubscribe = await quipu.subscribeToEvents(collectionId, (event) => {
+console.log(\`Got an event: \${event.event}\`, event.data);
+// This is where your AI app can do its real-time magic!
+if (event.event === "create" && event.data) {
+// Assuming event.data is an object or array of objects matching Task structure
+if (Array.isArray(event.data)) {
+event.data.forEach(itemData => {
+const createdTask = new Task(itemData as Partial&lt;Task&gt;);
+console.log("Yay! New Task created (from array):", createdTask);
+});
+} else {
+const createdTask = new Task(event.data as Partial&lt;Task&gt;);
+console.log("Yay! New Task created:", createdTask);
+}
+}
+});
 
     // To stop listening after a bit (say, 30 seconds)
     // setTimeout(() => {
     //     unsubscribe();
     //     console.log("Alright, stopped listening for events.");
     // }, 30000);
+
 }
 // Try it out with one of your collection IDs!
 // subscribeToTaskEvents("your-collection-id");</code></pre>
-                </div>
-            </section>
+
+</div>
+</section>
 
             <section id="vector-store" class="content-section">
                 <h2 class="text-3xl font-semibold mb-6">Vector Store & Cutting-Edge Similarity Search: Smart Data Finding! 🧠🔍</h2>
@@ -317,98 +334,106 @@ async function subscribeToTaskEvents(collectionId: string) {
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Let's get some documents into our vector namespace!
+
 async function upsertDocuments() {
-    const textsToEmbed = [
-        "The quick brown fox jumps over the lazy dog.",
-        "A dog barks loudly at the cat.",
-        "Cats are known for their agility and grace.",
-        "Foxes are clever and cunning animals."
-    ];
-    const upsertPayload = {
-        // Note: SDK shows 'texts', API spec shows 'content'. Assuming 'content' based on API. Adjust if SDK is different.
-        content: textsToEmbed, 
-        model: "poly-sage", // Pick your favorite embedding model: "poly-sage", "deep-pulse", or "mini-scope"!
-        namespace: "my-documents"
-    };
-    try {
-        // Using upsertVectors method as per SDK, but payload field name discrepancy noted.
-        const response = await quipu.upsertVectors({
-            texts: textsToEmbed, // Using 'texts' as per SDK UpsertText type
-            model: "poly-sage",
-            namespace: "my-documents"
-        });
-        console.log("Documents are in and ready:", response);
-    } catch (error) {
-        console.error("Oh no! Couldn't upsert documents:", error);
-    }
+const textsToEmbed = [
+"The quick brown fox jumps over the lazy dog.",
+"A dog barks loudly at the cat.",
+"Cats are known for their agility and grace.",
+"Foxes are clever and cunning animals."
+];
+const upsertPayload = {
+// Note: SDK shows 'texts', API spec shows 'content'. Assuming 'content' based on API. Adjust if SDK is different.
+content: textsToEmbed,
+model: "poly-sage", // Pick your favorite embedding model: "poly-sage", "deep-pulse", or "mini-scope"!
+namespace: "my-documents"
+};
+try {
+// Using upsertVectors method as per SDK, but payload field name discrepancy noted.
+const response = await quipu.upsertVectors({
+texts: textsToEmbed, // Using 'texts' as per SDK UpsertText type
+model: "poly-sage",
+namespace: "my-documents"
+});
+console.log("Documents are in and ready:", response);
+} catch (error) {
+console.error("Oh no! Couldn't upsert documents:", error);
+}
 }
 upsertDocuments();</code></pre>
-                </div>
+
+</div>
 
                 <h3 class="text-xl font-semibold mt-6 mb-3">Query Vector Store</h3>
                 <p>Unlock true semantic search! Find texts that are <em>conceptually</em> similar, not just matching keywords. Our advanced vector embeddings give you super precise, intelligent results.</p>
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Let's find some similar documents!
+
 async function querySimilarDocuments() {
-    const queryText = "animals playing"; // SDK QueryText expects 'query: string', not array.
-    const queryPayload = {
-        query: queryText, 
-        model: "poly-sage",
-        namespace: "my-documents",
-        top_k: 2 // We want the top 2 closest matches!
-    };
-    try {
-        const response = await quipu.queryVectors(queryPayload);
-        console.log("Found these similar documents:", response.matches);
-    } catch (error) {
-        console.error("Bummer! Couldn't query similar documents:", error);
-    }
+const queryText = "animals playing"; // SDK QueryText expects 'query: string', not array.
+const queryPayload = {
+query: queryText,
+model: "poly-sage",
+namespace: "my-documents",
+top_k: 2 // We want the top 2 closest matches!
+};
+try {
+const response = await quipu.queryVectors(queryPayload);
+console.log("Found these similar documents:", response.matches);
+} catch (error) {
+console.error("Bummer! Couldn't query similar documents:", error);
+}
 }
 querySimilarDocuments();</code></pre>
-                </div>
+
+</div>
 
                 <h3 class="text-xl font-semibold mt-6 mb-3">Delete Embeddings</h3>
                 <p>Keep your data tidy! Easily remove specific embeddings from your vector store to keep things optimized.</p>
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Time to delete some embeddings by ID!
+
 async function deleteSpecificEmbeddings(idsToDelete: string[]) {
-    const deletePayload = {
-        namespace: "my-documents",
-        ids: idsToDelete
-    };
-    try {
-        const response = await quipu.deleteVectors(deletePayload);
-        console.log("Embeddings deleted:", response);
-    } catch (error) {
-        console.error("Couldn't delete embeddings:", error);
-    }
+const deletePayload = {
+namespace: "my-documents",
+ids: idsToDelete
+};
+try {
+const response = await quipu.deleteVectors(deletePayload);
+console.log("Embeddings deleted:", response);
+} catch (error) {
+console.error("Couldn't delete embeddings:", error);
+}
 }
 // Use actual embedding IDs from your upsert response here!
 // deleteSpecificEmbeddings(["embedding-id-1", "embedding-id-2"]);</code></pre>
-                </div>
-                
+
+</div>
+
                 <h3 class="text-xl font-semibold mt-6 mb-3">Embed Text</h3>
                 <p>Need a vector for some text right now? No problem! Generate high-quality vector embeddings for any text, ready for your AI models to use instantly.</p>
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Let's get some embeddings for our text!
+
 async function getEmbeddingsForText() {
-    const embedPayload = {
-        content: ["This is a sentence to embed.", "Another sentence for embedding."],
-        model: "poly-sage"
-    };
-    try {
-        const response = await quipu.embed(embedPayload);
-        console.log("Here are your generated embeddings:", response.data);
-    } catch (error) {
-        console.error("Failed to get embeddings:", error);
-    }
+const embedPayload = {
+content: ["This is a sentence to embed.", "Another sentence for embedding."],
+model: "poly-sage"
+};
+try {
+const response = await quipu.embed(embedPayload);
+console.log("Here are your generated embeddings:", response.data);
+} catch (error) {
+console.error("Failed to get embeddings:", error);
+}
 }
 getEmbeddingsForText();</code></pre>
-                </div>
-            </section>
+
+</div>
+</section>
 
             <section id="auth" class="content-section">
                 <h2 class="text-3xl font-semibold mb-6">Seamless Authentication: Easy-Peasy Security! 🔐</h2>
@@ -419,14 +444,16 @@ getEmbeddingsForText();</code></pre>
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Example: Directing the user to GitHub to log in (this usually happens in their browser)
+
 // const quipubaseAuthUrl = "http://localhost:5454"; // Your Quipubase base URL
 // window.location.href = \`\${quipubaseAuthUrl}/v1/auth/github\`;
 
 console.log("To kick off GitHub OAuth, just head to: http://YOUR_QUIPUBASE_URL/v1/auth/github in your browser!");
 console.log("Replace YOUR_QUIPUBASE_URL with your instance's address.");
 </code></pre>
-                </div>
-            </section>
+
+</div>
+</section>
 
             <section id="file-processing" class="content-section">
                 <h2 class="text-3xl font-semibold mb-6">Intelligent File Processing: From Messy Data to Smart Insights! 📄➡️💡</h2>
@@ -436,31 +463,33 @@ console.log("Replace YOUR_QUIPUBASE_URL with your instance's address.");
                 <div class="code-block">
                     <button class="copy-button">Copy</button>
                     <pre><code>// Upload and process a text file (this is a conceptual example for browsers or Node.js)
+
 async function processMyFile(file: File) { // 'file' would come from an input element, like a file upload
-    try {
-        const response = await quipu.chunkFile(file, "text"); // Or "html" if it's an HTML file!
-        console.log("File processed and all chunked up:", response.chunks);
-    } catch (error) {
-        console.error("Couldn't process the file:", error);
-    }
+try {
+const response = await quipu.chunkFile(file, "text"); // Or "html" if it's an HTML file!
+console.log("File processed and all chunked up:", response.chunks);
+} catch (error) {
+console.error("Couldn't process the file:", error);
+}
 }
 
 // In a browser, you'd grab the File object from an &lt;input type="file"&gt; like this:
 // const fileInput = document.getElementById('myFileInput') as HTMLInputElement;
 // fileInput.addEventListener('change', (event) => {
-//     const fileList = (event.target as HTMLInputElement).files;
-//     if (fileList && fileList.length > 0) {
-//         const file = fileList[0];
-//         processMyFile(file);
-//     }
+// const fileList = (event.target as HTMLInputElement).files;
+// if (fileList && fileList.length > 0) {
+// const file = fileList[0];
+// processMyFile(file);
+// }
 // });
 // For this to work, you'd need an input element in your HTML:
 // &lt;input type="file" id="myFileInput" /&gt;</code></pre>
-                </div>
-                 <p class="mt-4 bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 rounded-md">
-                    <strong>Note:</strong> The <code>chunkFile</code> method in the provided SDK snippet takes <code>(file: File, format: "html" | "text")</code> and then attempts to build a URL like <code>this.buildUrl(\`/v1/file?format=\${format}\`)</code>. However, the API for file upload is a POST request and typically involves sending <code>FormData</code>. The SDK's <code>fetch</code> call for <code>chunkFile</code> is missing the <code>method: "POST"</code> and <code>body: formData</code>. The example above assumes the SDK method correctly handles this internally. If not, the SDK method would need adjustment.
-                </p>
-            </section>
+
+</div>
+<p class="mt-4 bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 rounded-md">
+<strong>Note:</strong> The <code>chunkFile</code> method in the provided SDK snippet takes <code>(file: File, format: "html" | "text")</code> and then attempts to build a URL like <code>this.buildUrl(\`/v1/file?format=\${format}\`)</code>. However, the API for file upload is a POST request and typically involves sending <code>FormData</code>. The SDK's <code>fetch</code> call for <code>chunkFile</code> is missing the <code>method: "POST"</code> and <code>body: formData</code>. The example above assumes the SDK method correctly handles this internally. If not, the SDK method would need adjustment.
+</p>
+</section>
 
             <footer class="mt-12 pt-8 border-t border-slate-200 text-center text-slate-500 text-sm">
                 Quipubase isn't just a database; it's your <strong>best pal</strong> for building the next generation of smart, reactive AI systems. Get ready for super flexible data handling, lightning-fast real-time action, and amazing semantic search. It's all here, designed to take your AI apps to the next level! 🚀

@@ -1,27 +1,32 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <title>QuipuBase</title>
-  <meta name="description" content="Quipubase is a real-time document database designed for AI-native applications. Built on top of RocksDB, it enables dynamic, schema-driven collections using jsonschema for flexible document modeling. With native support for vector similarity search, Quipubase empowers intelligent querying at scale. Its built-in pub/sub architecture allows real-time subscriptions to document-level events, making it a powerful backend for live, reactive AI systems.">
-</head>
-<body class="font-sans dark:text-white dark:bg-hex-121212">
-  <div id="root"></div>
-  <script>
-    (function() {
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      const setting = localStorage.getItem('usehooks-ts-dark-mode')
-        ? localStorage.getItem('usehooks-ts-dark-mode') === 'true'
-          ? 'dark'
-          : 'light'
-        : 'auto'
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>QuipuBase</title>
+    <meta
+      name="description"
+      content="Quipubase is a real-time document database designed for AI-native applications. Built on top of RocksDB, it enables dynamic, schema-driven collections using jsonschema for flexible document modeling. With native support for vector similarity search, Quipubase empowers intelligent querying at scale. Its built-in pub/sub architecture allows real-time subscriptions to document-level events, making it a powerful backend for live, reactive AI systems."
+    />
+  </head>
+  <body class="font-sans dark:text-white dark:bg-hex-121212">
+    <div id="root"></div>
+    <script>
+      (function () {
+        const prefersDark =
+          window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const setting = localStorage.getItem("usehooks-ts-dark-mode")
+          ? localStorage.getItem("usehooks-ts-dark-mode") === "true"
+            ? "dark"
+            : "light"
+          : "auto";
 
-      if (setting === 'dark' || (prefersDark && setting !== 'light'))
-        document.documentElement.classList.toggle('dark', true)
-    })()
-  </script>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
+        if (setting === "dark" || (prefersDark && setting !== "light"))
+          document.documentElement.classList.toggle("dark", true);
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

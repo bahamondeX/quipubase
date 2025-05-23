@@ -74,9 +74,9 @@ class Embedding(BaseModel):
     @classmethod
     def db(cls, *, namespace: str):
         os.makedirs("/app/data/embeddings", exist_ok=True)
-        if not os.path.exists("/app/data/embeddings/"+namespace):
-            os.makedirs("/app/data/embeddings/"+namespace, exist_ok=True)
-        return Rdict("/app/data/embeddings/"+namespace)
+        if not os.path.exists("/app/data/embeddings/" + namespace):
+            os.makedirs("/app/data/embeddings/" + namespace, exist_ok=True)
+        return Rdict("/app/data/embeddings/" + namespace)
 
     @classmethod
     def retrieve(cls, *, id: str, namespace: str):
