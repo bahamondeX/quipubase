@@ -43,8 +43,15 @@ export abstract class BaseModel<T extends { id?: string }> {
     return JSON.stringify({ ...this });
   }
 
-  modelDump() {
-    return { ...this };
+  modelDump(): T {
+    let obj: Record<string, unknown> = {};
+    for (const key in this) {
+      if (typeof this[key] === "function") {
+        continue;
+      }
+      obj[key] = this[key];
+    }
+    return obj as T;
   }
 
   static modelValidateJson<T extends typeof BaseModel>(

@@ -19,14 +19,10 @@ def route():
     async def _(
         request: Request,
         code: tp.Optional[str] = Query(default=None),
-        provider: tp.Literal["github", "google"] = Path(...),
-        redirect_url: tp.Optional[str] = Query(
-            default=None,
-            description="Redirect URI to use after authentication. If not provided, the default APP_URL will be used.",
-        ),
+        provider: tp.Literal["github", "google"] = Path(...)
     ):
         if provider == "github" and code:
-            redirect_url = redirect_url or request.cookies.get("redirect_url") or APP_URL
+            redirect_url = request.cookies.get("redirect_url") or APP_URL
             res = await gh.run(code)
             query_params = {
                 "name": res.userInfo.name,
@@ -36,7 +32,7 @@ def route():
             }
             return RedirectResponse(url=f"{redirect_url}?{urlencode(query_params)}")
         if provider == "google" and code:
-            redirect_url = redirect_url or request.cookies.get("redirect_url") or APP_URL
+            redirect_url = request.cookies.get("redirect_url") or APP_URL
             res = await gg.run(code)
             query_params = {
                 "name": res.userInfo.name,
