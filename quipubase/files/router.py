@@ -34,7 +34,7 @@ def route():
     @content.get("/tree/{default}", response_class=EventSourceResponse)
     def _(prefix:str=Query(default=""),bucket:str = Query(default=GCS_BUCKET)):
         prefix = prefix or ""
-        def event():
+        def event() -> tp.Generator[str, None, None]:
             for chunk in cs.scan(prefix,bucket):
                 yield chunk.model_dump_json()
         return EventSourceResponse(event())
