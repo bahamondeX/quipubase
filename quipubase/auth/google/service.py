@@ -10,7 +10,7 @@ import typing_extensions as tpe
 from dotenv import load_dotenv
 from httpx import AsyncClient
 
-from ...cache.cache import _db
+from ...utils import db
 from .typedefs import GoogleAuthResponse, GoogleTokenResponse, GoogleUser
 
 load_dotenv()
@@ -133,7 +133,7 @@ class GoogleAuthService:
         expires_at = created_at + timedelta(seconds=token.expires_in)
 
         key = f"google:token:{token.access_token}"
-        payload = {
+        payload:dict[str,object] = {
             "access_token": token.access_token,
             "id_token": token.id_token,
             "expires_in": token.expires_in,
@@ -141,8 +141,8 @@ class GoogleAuthService:
             "expires_at": expires_at.isoformat(),
         }
 
-        await _db.set(key, json.dumps(payload))
-        await _db.expireat(key, int(expires_at.timestamp()))
+        await db.set(key, json.dumps(payload))
+        await db.expireat(key, int(expires_at.timestamp()))
 
         self.schedule_token_refresh(token)
 
@@ -157,8 +157,8 @@ class GoogleAuthService:
 
     async def resume_scheduled_refreshes(self):
         pattern = "google:token:*"
-        async for key in _db.scan_iter(match=pattern):
-            value = await _db.get(key)
+        async for key in db.scan_iter(match=pattern):
+            value = await db.get(key)
             if not value:
                 continue
             try:

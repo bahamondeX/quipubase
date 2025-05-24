@@ -1,13 +1,25 @@
 from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
-from .data import Collection
-from .models import CollectionType, JsonSchemaModel, QuipubaseRequest
-from .routes import (auth_router, collections_router, pubsub_router,
-                     store_router, content_router)
+from .collections import Collection, CollectionType, JsonSchemaModel, QuipubaseRequest
+from .auth import route as auth_router
+from .events import route as pubsub_router
+from .files import route as content_router
+from .collections import route as data_router
+from .vector import route as setup_routes
+
+__all__ = [
+    "data_router",
+    "pubsub_router",
+    "setup_routes",
+    "auth_router",
+    "content_router",
+]
+
 
 # Import all necessary components to avoid forward reference issues
 
@@ -38,11 +50,11 @@ def create_app():
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.include_router(collections_router(), prefix="/v1")
+    app.include_router(data_router(), prefix="/v1")
     app.include_router(pubsub_router(), prefix="/v1")
-    app.include_router(store_router(), prefix="/v1")
+    app.include_router(setup_routes(), prefix="/v1")
     app.include_router(auth_router(), prefix="/v1")
-    app.include_router(content_router(),prefix="/v1")
+    app.include_router(content_router(), prefix="/v1")
 
     @app.get("/", include_in_schema=False)
     def _():
@@ -50,5 +62,6 @@ def create_app():
 
     @app.get("/favicon.svg", include_in_schema=False)
     def _():
-        return HTMLResponse(Path("favicon.svg").read_text())
+        return FileResponse("./favicon.svg")
+
     return app

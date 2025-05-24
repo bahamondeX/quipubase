@@ -73,7 +73,7 @@ export abstract class BaseModel<T extends { id?: string }> {
     }
     return null;
   }
-}
+};
 
 export type QuipuActions =
   | "create"
@@ -221,6 +221,13 @@ export type SSEEvent<T> = {
   event: "create" | "read" | "update" | "delete" | "query" | "stop";
 };
 
+export type User = {
+  sub: string;
+  name: string;
+  picture: string;
+  access_token: string;
+};
+
 export class QuipuBase<T extends { id?: string }> {
   baseUrl: string;
   constructor(
@@ -231,7 +238,7 @@ export class QuipuBase<T extends { id?: string }> {
 
   buildUrl(endpoint: string, id?: string): string {
     return `${this.baseUrl}${endpoint}${id ? `/${id}` : ""}`;
-  }
+  };
 
   // Collection Management
   async createCollection(data: typeof BaseModel<T>): Promise<CollectionType> {
@@ -247,13 +254,13 @@ export class QuipuBase<T extends { id?: string }> {
 
     const response = await fetch(url, options);
     return (await response.json()) as CollectionType;
-  }
+  };
 
   async getCollection(collectionId: string): Promise<CollectionType> {
     const url = this.buildUrl("/v1/collections", collectionId);
     const response = await fetch(url);
     return (await response.json()) as CollectionType;
-  }
+  };
 
   async deleteCollection(collectionId: string): Promise<DeleteReturnType> {
     const url = this.buildUrl("/v1/collections", collectionId);
@@ -266,13 +273,13 @@ export class QuipuBase<T extends { id?: string }> {
 
     const response = await fetch(url, options);
     return (await response.json()) as DeleteReturnType;
-  }
+  };
 
   async listCollections(): Promise<CollectionMetadataType[]> {
     const url = this.buildUrl("/v1/collections");
     const response = await fetch(url);
     return (await response.json()) as CollectionMetadataType[];
-  }
+  };
   // PubSub Operations
   async publishEvent(
     collectionId: string,
@@ -289,7 +296,7 @@ export class QuipuBase<T extends { id?: string }> {
 
     const response = await fetch(url, options);
     return (await response.json()) as T;
-  }
+  };
 
   // Stream subscription with custom handling
 
@@ -316,7 +323,7 @@ export class QuipuBase<T extends { id?: string }> {
     return () => {
       eventSource.close();
     };
-  }
+  };
   // --- VectorStore Methods ---
 
   async embed(body: EmbedText): Promise<EmbedResponse> {
@@ -335,7 +342,7 @@ export class QuipuBase<T extends { id?: string }> {
       body: JSON.stringify(body),
     });
     return (await response.json()) as UpsertResponse;
-  }
+  };
 
   async queryVectors(body: QueryText): Promise<QueryResponse> {
     const response = await fetch(this.buildUrl("/v1/vector/query"), {
@@ -344,7 +351,7 @@ export class QuipuBase<T extends { id?: string }> {
       body: JSON.stringify(body),
     });
     return (await response.json()) as QueryResponse;
-  }
+  };
 
   async deleteVectors(body: DeleteText): Promise<DeleteResponse> {
     const response = await fetch(this.buildUrl("/v1/vector/delete"), {
@@ -353,7 +360,7 @@ export class QuipuBase<T extends { id?: string }> {
       body: JSON.stringify(body),
     });
     return (await response.json()) as DeleteResponse;
-  }
+  };
 
   async chunkFile(
     file: File,
@@ -363,5 +370,40 @@ export class QuipuBase<T extends { id?: string }> {
     formData.append("file", file);
     const response = await fetch(this.buildUrl(`/v1/file?format=${format}`));
     return (await response.json()) as ChunkFileResponse;
-  }
-}
+  };
+
+  login(provider: "google" | "github", redirectUrl: string = window.location.origin) {
+    if (!['github', 'google'].includes(provider)) {
+      console.error("Invalid OAuth provider:", provider);
+      return;
+    }
+    localStorage.setItem(redirectUrl, redirectUrl);
+    window.location.href = `${this.baseUrl}/v1/auth/${provider}?redirectUrl=${redirectUrl}`;
+    const params = new URLSearchParams(window.location.search);
+
+    const name = params.get('name');
+    const sub = params.get('sub');
+    const picture = params.get('picture');
+    const accessToken = params.get('access_token');
+
+    if (window.history.pushState) {
+      const newUrl = new URL(window.location.href);
+      newUrl.search = ''; // Clear all query parameters
+      window.history.pushState({ path: newUrl.href }, '', newUrl.href);
+    };
+
+    localStorage.removeItem(redirectUrl);
+
+    if (name && sub && accessToken) {
+      return {
+        name,
+        sub,
+        picture,
+        access_token: accessToken,
+      };
+    } else {
+      console.warn("No valid authentication parameters found in URL.");
+      return null;
+    };
+  };
+};

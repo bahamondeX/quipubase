@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from httpx import AsyncClient, Response
 from openai._utils._proxy import LazyProxy
 
-from ...cache.cache import _db
+from ...utils.cache import db
 from .typedefs import GithubAuthResponse, GitHubTokenResponse, GitHubUser
 
 load_dotenv()
@@ -120,14 +120,14 @@ class GithubAuthService:
         token = GitHubTokenResponse.model_validate(response.json())
         asyncio.create_task(self.store_token(token))
         user = await self.user_info(token.access_token)
-        return GitHubAuthResponse(tokenInfo=token, userInfo=user)
+        return GithubAuthResponse(tokenInfo=token, userInfo=user) # type: ignore
 
     async def store_token(self, token: GitHubTokenResponse) -> None:
         created_at = datetime.now(timezone.utc)
         expires_at = created_at + timedelta(seconds=token.expires_in)
 
         key = f"github:token:{token.access_token}"
-        payload = {
+        payload:dict[str,object] = {
             "access_token": token.access_token,
             "refresh_token": token.refresh_token,
             "expires_in": token.expires_in,
@@ -135,18 +135,18 @@ class GithubAuthService:
             "expires_at": expires_at.isoformat(),
         }
 
-        await _db.set(key, json.dumps(payload))
-        await _db.expireat(key, int(expires_at.timestamp()))
+        await db.set(key, json.dumps(payload)) # type: ignore
+        await db.expireat(key, int(expires_at.timestamp())) # type: ignore
         self.schedule_token_refresh(token)
 
     async def resume_scheduled_refreshes(self) -> None:
         pattern = "github:token:*"
-        async for key in _db.scan_iter(match=pattern):
-            value = await _db.get(key)
+        async for key in db.scan_iter(match=pattern): # type: ignore
+            value = await db.get(key) # type: ignore
             if not value:
                 continue
             try:
-                data = json.loads(value)
+                data = json.loads(value) # type: ignore
                 refresh_token = data["refresh_token"]
                 expires_at = datetime.fromisoformat(data["expires_at"])
                 delay = (expires_at - datetime.now(timezone.utc)).total_seconds() - 60

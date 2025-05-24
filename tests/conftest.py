@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from quipubase import create_app
-from quipubase.data.collection import Collection
+from quipubase.collections.typedefs import Collection
 
 
 @pytest.fixture
