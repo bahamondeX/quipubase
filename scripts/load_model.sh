@@ -4,8 +4,8 @@ set -euo pipefail
 # Define models to download
 MODELS=(
     "nomic-ai/nomic-embed-text-v1.5"
-    "sentence-transformers/all-mpnet-base-v2"
-    "sentence-transformers/all-MiniLM-L6-v2"
+    # "sentence-transformers/all-mpnet-base-v2"
+    # "sentence-transformers/all-MiniLM-L6-v2"
 )
 
 # Base cache directory

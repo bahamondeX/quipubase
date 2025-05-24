@@ -73,7 +73,7 @@ export abstract class BaseModel<T extends { id?: string }> {
     }
     return null;
   }
-};
+}
 
 export type QuipuActions =
   | "create"
@@ -144,16 +144,16 @@ export type JsonSchemaPrimitive = {
   name?: string;
   type: "string" | "number" | "integer" | "boolean" | "binary" | "null";
   format?:
-    | "date-time"
-    | "base64"
-    | "binary"
-    | "uuid"
-    | "email"
-    | "hostname"
-    | "ipv4"
-    | "ipv6"
-    | "uri"
-    | "uri-reference";
+  | "date-time"
+  | "base64"
+  | "binary"
+  | "uuid"
+  | "email"
+  | "hostname"
+  | "ipv4"
+  | "ipv6"
+  | "uri"
+  | "uri-reference";
   default?: any;
   description?: string;
   required?: boolean;
@@ -210,6 +210,43 @@ export type ChunkFileResponse = {
   chunkedCount: number;
 };
 
+export type UploadedFileResponse = {
+  url: string;
+  created: number;
+  key: string;
+  size: number;
+  content_type: string;
+};
+
+export type GetFileResponse = {
+  url: string;
+  created: number;
+  key: string;
+};
+
+export type DeleteFileResponse = {
+  code: number; // Assuming 'code' in the Python dict[str, bool] maps to a number
+  created: number; // Based on the Python return type, it was { "code": 0, "created": created }
+};
+
+// Type for a node in the recursive file tree
+export type FileTreeNode = {
+  type: "file" | "dir";
+  name: string;
+  path: string;
+  content: string | FileTreeNode[]; // String content for files, list of children for directories
+  created?: number; // Optional, as it's only on the root of the scan response
+  error?: string; // Optional, if an error occurred during scan
+};
+
+export type ScanResponse = {
+  tree: FileTreeNode[];
+  created: number;
+  bucket: string;
+  prefix: string;
+  item_count: number;
+};
+
 export type QuipubaseRequest<T> = {
   event: QuipuActions;
   id?: string | null;
@@ -238,9 +275,9 @@ export class QuipuBase<T extends { id?: string }> {
 
   buildUrl(endpoint: string, id?: string): string {
     return `${this.baseUrl}${endpoint}${id ? `/${id}` : ""}`;
-  };
+  }
 
-  // Collection Management
+  // --- Collection Management ---
   async createCollection(data: typeof BaseModel<T>): Promise<CollectionType> {
     const url = this.buildUrl("/v1/collections");
 
@@ -253,14 +290,20 @@ export class QuipuBase<T extends { id?: string }> {
     };
 
     const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as CollectionType;
-  };
+  }
 
   async getCollection(collectionId: string): Promise<CollectionType> {
     const url = this.buildUrl("/v1/collections", collectionId);
     const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as CollectionType;
-  };
+  }
 
   async deleteCollection(collectionId: string): Promise<DeleteReturnType> {
     const url = this.buildUrl("/v1/collections", collectionId);
@@ -272,15 +315,21 @@ export class QuipuBase<T extends { id?: string }> {
     };
 
     const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as DeleteReturnType;
-  };
+  }
 
   async listCollections(): Promise<CollectionMetadataType[]> {
     const url = this.buildUrl("/v1/collections");
     const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as CollectionMetadataType[];
-  };
-  // PubSub Operations
+  }
+  // --- PubSub Operations ---
   async publishEvent(
     collectionId: string,
     actionRequest: QuipubaseRequest<T>,
@@ -295,11 +344,13 @@ export class QuipuBase<T extends { id?: string }> {
     };
 
     const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as T;
-  };
+  }
 
   // Stream subscription with custom handling
-
   async subscribeToEvents(
     collectionId: string,
     callback: (chunk: SSEEvent<T>) => void,
@@ -323,7 +374,7 @@ export class QuipuBase<T extends { id?: string }> {
     return () => {
       eventSource.close();
     };
-  };
+  }
   // --- VectorStore Methods ---
 
   async embed(body: EmbedText): Promise<EmbedResponse> {
@@ -332,6 +383,9 @@ export class QuipuBase<T extends { id?: string }> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as EmbedResponse;
   }
 
@@ -341,8 +395,11 @@ export class QuipuBase<T extends { id?: string }> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as UpsertResponse;
-  };
+  }
 
   async queryVectors(body: QueryText): Promise<QueryResponse> {
     const response = await fetch(this.buildUrl("/v1/vector/query"), {
@@ -350,8 +407,11 @@ export class QuipuBase<T extends { id?: string }> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as QueryResponse;
-  };
+  }
 
   async deleteVectors(body: DeleteText): Promise<DeleteResponse> {
     const response = await fetch(this.buildUrl("/v1/vector/delete"), {
@@ -359,8 +419,13 @@ export class QuipuBase<T extends { id?: string }> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as DeleteResponse;
-  };
+  }
+
+  // --- File Operations ---
 
   async chunkFile(
     file: File,
@@ -368,19 +433,140 @@ export class QuipuBase<T extends { id?: string }> {
   ): Promise<ChunkFileResponse> {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await fetch(this.buildUrl(`/v1/file?format=${format}`));
+    const response = await fetch(this.buildUrl(`/v1/files?format=${format}`), {
+      method: "POST", // FastAPI endpoint is POST for chunkFile
+      body: formData,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return (await response.json()) as ChunkFileResponse;
-  };
+  }
 
-  login(provider: "google" | "github", redirectUrl: string = window.location.origin) {
-    if (!['github', 'google'].includes(provider)) {
+  async uploadFile(
+    file: File,
+    bucket?: string,
+  ): Promise<UploadedFileResponse> {
+    const formData = new FormData();
+    formData.append("file", file);
+    let url = this.buildUrl("/v1/files");
+    if (bucket) {
+      url += `?bucket=${bucket}`;
+    }
+    const response = await fetch(url, {
+      method: "PUT", // FastAPI endpoint is PUT for file upload
+      body: formData,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return (await response.json()) as UploadedFileResponse;
+  }
+
+  async getFile(key: string, bucket?: string): Promise<GetFileResponse> {
+    let url = this.buildUrl("/v1/files", key);
+    if (bucket) {
+      url += `?bucket=${bucket}`;
+    }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return (await response.json()) as GetFileResponse;
+  }
+
+  async deleteFile(key: string): Promise<DeleteFileResponse> {
+    const url = this.buildUrl("/v1/files", key);
+    const options = {
+      method: "DELETE",
+    };
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return (await response.json()) as DeleteFileResponse;
+  }
+
+  async subscribeToScan(
+    callback: (data: FileTreeNode) => void,
+    prefix: string = "",
+    bucket?: string,
+    onComplete?: () => void,
+    onError?: (error: Event) => void,
+  ): Promise<() => void> {
+    let url = this.buildUrl("/v1/files/tree/default"); // Path from FastAPI: /v1/files/tree/{default}
+    const params = new URLSearchParams();
+    if (prefix) {
+      params.append("prefix", prefix);
+    }
+    if (bucket) {
+      params.append("bucket", bucket);
+    }
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+
+    const eventSource = new EventSource(url);
+
+    eventSource.onmessage = (evt: MessageEvent) => {
+      try {
+        // Each `onmessage` event carries one chunk (one node) from the generator
+        const node: FileTreeNode = JSON.parse(evt.data);
+        callback(node);
+      } catch (error) {
+        console.error(`Error parsing SSE chunk:`, error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error("EventSource error:", error);
+      if (onError) {
+        onError(error);
+      }
+      eventSource.close(); // Close on error to prevent constant retries if unrecoverable
+    };
+
+    // EventSource doesn't have a direct 'oncomplete' event for the stream ending,
+    // but onclose can be used if you anticipate the server closing the connection
+    // cleanly when done. In practice, you might rely on the server side closing.
+    eventSource.onopen = () => {
+      console.log("SSE connection opened for scan.");
+    };
+
+    eventSource.onerror = () => {
+      console.log("SSE connection closed for scan.");
+      if (onComplete) {
+        onComplete();
+      }
+    };
+
+
+    return () => {
+      eventSource.close();
+    };
+  }
+
+  login(
+    provider: "google" | "github",
+    redirectUrl: string = window.location.origin,
+  ) {
+    if (!["github", "google"].includes(provider)) {
       console.error("Invalid OAuth provider:", provider);
       return;
     }
-    localStorage.setItem(redirectUrl, redirectUrl);
-    window.location.href = `${this.baseUrl}/v1/auth/${provider}?redirectUrl=${redirectUrl}`;
-    const params = new URLSearchParams(window.location.search);
 
+    // Store redirectUrl in localStorage (as FastAPI reads from cookie in Python side,
+    // or you adjust FastAPI to read from query param).
+    // The previous Python code indicated reading from cookie, but the JS sent it via query param.
+    // Let's ensure consistency: send via query param for simplicity.
+    // Also, localStorage.setItem(key, value) takes two arguments.
+    localStorage.setItem('auth_redirect_url', redirectUrl); // Use a specific key
+
+    const authUrl = `${this.baseUrl}/v1/auth/${provider}?redirect_url=${encodeURIComponent(redirectUrl)}`;
+    window.location.href = authUrl;
+
+
+    const params = new URLSearchParams(window.location.search);
     const name = params.get('name');
     const sub = params.get('sub');
     const picture = params.get('picture');
@@ -390,20 +576,51 @@ export class QuipuBase<T extends { id?: string }> {
       const newUrl = new URL(window.location.href);
       newUrl.search = ''; // Clear all query parameters
       window.history.pushState({ path: newUrl.href }, '', newUrl.href);
-    };
+    }
 
-    localStorage.removeItem(redirectUrl);
+    localStorage.removeItem('auth_redirect_url'); // Remove the specific key
 
     if (name && sub && accessToken) {
       return {
         name,
         sub,
-        picture,
+        picture: picture ?? "",
         access_token: accessToken,
       };
     } else {
       console.warn("No valid authentication parameters found in URL.");
       return null;
-    };
-  };
-};
+    }
+  }
+
+  // A separate function to handle the redirect callback on the destination page
+  static handleAuthRedirectCallback(): User | null {
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get('name');
+    const sub = params.get('sub');
+    const picture = params.get('picture');
+    const accessToken = params.get('access_token');
+
+    // Clean up the URL
+    if (window.history.pushState) {
+      const newUrl = new URL(window.location.href);
+      newUrl.search = ''; // Clear all query parameters
+      window.history.pushState({ path: newUrl.href }, '', newUrl.href);
+    }
+
+    // Clean up local storage if a redirect URL was stored
+    // localStorage.removeItem('auth_redirect_url'); // Uncomment if you use this to retrieve the original redirect url on the client
+
+    if (name && sub && accessToken) {
+      return {
+        name,
+        sub,
+        picture: picture ?? "",
+        access_token: accessToken,
+      };
+    } else {
+      console.warn("No valid authentication parameters found in URL after redirect.");
+      return null;
+    }
+  }
+}
