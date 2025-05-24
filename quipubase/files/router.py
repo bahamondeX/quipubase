@@ -1,5 +1,5 @@
 import typing as tp
-from fastapi import APIRouter, File, UploadFile, Query
+from fastapi import APIRouter, File, Path, UploadFile, Query
 from sse_starlette import EventSourceResponse
 
 from .typedefs import ChunkFile, GetOrCreateFile
@@ -16,23 +16,25 @@ def route():
         return await cs.run(file, format)  # type: ignore
     
     @content.put("", response_model=GetOrCreateFile)
-    async def _(file: UploadFile = File(...), bucket: tp.Optional[str] = Query(default=None)):
+    async def _(path:str,file: UploadFile = File(...), bucket: tp.Optional[str] = Query(default=None)):
         if bucket:
-            return await cs.put(file, bucket)
-        return await cs.put(file)
+            return await cs.put(path,file, bucket)
+        return await cs.put(path,file)
     
-    @content.get("/{key}", response_model=GetOrCreateFile)
-    def _(key: str, bucket: tp.Optional[str] = Query(default=None)):
+    @content.get("/{path}", response_model=GetOrCreateFile)
+    def _(path: str, bucket: tp.Optional[str] = Query(default=None)):
         if bucket:
-            return cs.get(key, bucket)
-        return cs.get(key)
+            return cs.get(path, bucket)
+        return cs.get(path)
         
-    @content.delete("/{key}", response_model=dict[str, bool])
-    def _(key: str):
-        return cs.delete(key)
+    @content.delete("/{path}", response_model=dict[str, bool])
+    def _(path: str, bucket:tp.Optional[str]=Query(default=None)):
+        if bucket:
+            return cs.delete(path,bucket)
+        return cs.delete(path)
     
-    @content.get("/tree/{default}", response_class=EventSourceResponse)
-    def _(prefix:str=Query(default=""),bucket:str = Query(default=GCS_BUCKET)):
+    @content.get("/tree/{prefix}", response_class=EventSourceResponse)
+    def _(prefix:str=Path(...),bucket:str = Query(default=GCS_BUCKET)):
         prefix = prefix or ""
         def event() -> tp.Generator[str, None, None]:
             for chunk in cs.scan(prefix,bucket):

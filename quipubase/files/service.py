@@ -1,14 +1,12 @@
 import time
 import os
 import typing as tp
-import uuid
 import base64 # Import base64 for binary content handling
 
 from fastapi import UploadFile
 from boto3 import client # type:ignore
 from botocore.exceptions import ClientError # Import for specific error handling
 from botocore.config import Config # type:ignore
-from hashlib import md5
 from pathlib import Path
 
 
@@ -52,10 +50,11 @@ class ContentService:
             chunks=chunks, created=created, chunkedCount=chunkedCount
         )
 
-    async def put(self, file: UploadFile, bucket:str=GCS_BUCKET) -> GetOrCreateFile:
+    async def put(self, id:str, file: UploadFile, bucket:str=GCS_BUCKET) -> GetOrCreateFile:
         start = time.perf_counter_ns()
         # Ensure key handles potential directories
-        key = f"{md5(uuid.uuid4().bytes).hexdigest()}/{file.filename}"
+        assert file.filename is not None
+        key = os.path.join(GCS_PATH,id,file.filename)
         try:
             s3.put_object(
                 Bucket=GCS_BUCKET,
@@ -79,9 +78,10 @@ class ContentService:
             print(f"An unexpected error occurred during put: {e}")
             raise e
 
-    async def get(self, key: str, bucket: str = GCS_BUCKET) -> GetOrCreateFile:
+    async def get(self, path: str, bucket: str = GCS_BUCKET) -> GetOrCreateFile:
         start = time.perf_counter_ns()
         try:
+            key = os.path.join(GCS_PATH, path)
             url = await self._get(key, bucket)
             created = (time.perf_counter_ns() - start) / 1e9
             return GetOrCreateFile(
@@ -99,7 +99,8 @@ class ContentService:
             raise e
 
     @asyncify
-    def _get(self, key:str, bucket:str = GCS_BUCKET)->str:
+    def _get(self, path:str, bucket:str = GCS_BUCKET)->str:
+        key = os.path.join(GCS_PATH, path)
         return s3.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": bucket, "Key": key},
@@ -107,8 +108,9 @@ class ContentService:
             )
 
     @asyncify
-    def delete(self, key: str, bucket: str = GCS_BUCKET) -> dict[str, float]:
+    def delete(self, path: str, bucket: str = GCS_BUCKET) -> dict[str, float]:
         start = time.perf_counter_ns()
+        key = os.path.join(GCS_PATH, path)
         try:
             s3.delete_object(
                 Bucket=bucket,
@@ -124,7 +126,7 @@ class ContentService:
             raise e
 
 
-    def _get_object_content(self, bucket_name: str, key: str) -> str:
+    def _get_object_content(self,  key: str, bucket_name: str=GCS_BUCKET) -> str:
         """Helper to fetch object content and encode if binary."""
         try:
             response = s3.get_object(Bucket=bucket_name, Key=key)
