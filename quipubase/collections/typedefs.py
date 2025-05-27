@@ -78,7 +78,7 @@ class JsonSchemaModel(BaseModel):
     required: tp.Optional[list[str]] = Field(default=None)
     description: tp.Optional[str] = Field(default=None)
 
-    def _process_type(self, schema: dict, depth: int = 0) -> tp.Any:
+    def _process_type(self, schema: tp.Dict[str, tp.Any] , depth: int = 0) -> tp.Any:
         """Helper method to process types with recursion control"""
         if depth > 10:  # Max nesting depth
             return str
@@ -92,7 +92,7 @@ class JsonSchemaModel(BaseModel):
         
         if schema_type == "object" and "properties" in schema:
             # Create nested model
-            nested_attrs = {}
+            nested_attrs:tp.Dict[str, tp.Any]  = {}
             for key, prop_schema in schema["properties"].items():
                 is_required = "required" in schema and key in schema["required"]
                 field_type = self._process_type(prop_schema, depth + 1)
@@ -113,7 +113,7 @@ class JsonSchemaModel(BaseModel):
 
     def create_class(self):
         """Create a class based on the schema with recursion control"""
-        attributes = {}
+        attributes:tp.Dict[str, tp.Any]  = {}
         for key, prop_schema in self.properties.items():
             is_required = self.required and key in self.required
             field_type = self._process_type(prop_schema)
