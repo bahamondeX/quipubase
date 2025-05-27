@@ -19,6 +19,7 @@ Dependencies:
 """
 
 import typing as tp
+import time
 from dataclasses import dataclass
 from functools import cached_property
 
@@ -78,6 +79,7 @@ class VectorStoreService(tp.Hashable):
             ...     Embedding(content="Hello world", embedding=[0.1, 0.2, 0.3])
             ... ])
         """
+        start = time.perf_counter()
         embeddings: list[Embedding] = []
         for vector in vectors:
             embeddings.append(
@@ -85,19 +87,17 @@ class VectorStoreService(tp.Hashable):
             )
         for embedding in embeddings:
             embedding.create(namespace=self.namespace)
-        return UpsertResponse(
-            contents=[
+        data=[
                 SemanticContent(
                     id=embedding.id,
-                    content=(
-                        embedding.content
-                        if isinstance(embedding.content, str)
-                        else ", ".join(embedding.content)
-                    ),
+                    content=embedding.content,
                 )
                 for embedding in embeddings
-            ],
-            upsertedCount=len(embeddings),
+            ]
+        return UpsertResponse(
+            data=data,
+            count=len(embeddings),
+            ellapsed=time.perf_counter() - start,
         )
 
     def get(self, id: str) -> tp.Optional[Embedding]:
@@ -128,9 +128,10 @@ class VectorStoreService(tp.Hashable):
         Example:
             >>> response = store.delete(["id1", "id2"])
         """
+        start = time.perf_counter()
         for id in ids:
             Embedding.delete(id=id, namespace=self.namespace)
-        return DeleteResponse(embeddings=ids, deletedCount=len(ids))
+        return DeleteResponse(data=ids, count=len(ids), ellapsed=time.perf_counter() - start)
 
     def embed(self, text: tp.Union[str, list[str]]) -> NDArray[np.float32]:
         """
@@ -161,6 +162,7 @@ class VectorStoreService(tp.Hashable):
             >>> query_vector = store.embed("Find similar content")
             >>> response = store.query(query_vector, top_k=5)
         """
+        start = time.perf_counter()
         corpus = list(Embedding.scan(namespace=self.namespace))
         matches = self.client.search(query_vector, corpus, top_k)
-        return QueryResponse(matches=matches, readCount=len(matches))
+        return QueryResponse(data=matches, count=len(matches), ellapsed=time.perf_counter() - start)

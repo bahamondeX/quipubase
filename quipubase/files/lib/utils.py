@@ -18,7 +18,7 @@ P = ParamSpec("P")
 
 
 @dataclass
-class HTTPException(BaseException):
+class QuipubaseException(BaseException):
     detail: str
     status_code: int = field(default=500)
 
@@ -124,7 +124,7 @@ def exception_handler(
             return func(*args, **kwargs)
         except Exception as e:
             logger.error("%s: %s", e.__class__.__name__, e)
-            raise HTTPException(
+            raise QuipubaseException(
                 status_code=500,
                 detail=f"Internal Server Error: {e.__class__.__name__} => {e}",
             ) from e
@@ -135,7 +135,7 @@ def exception_handler(
             return await func_
         except Exception as e:
             logger.error("%s: %s", e.__class__.__name__, e)
-            raise HTTPException(
+            raise QuipubaseException(
                 status_code=500,
                 detail=f"Internal Server Error: {e.__class__.__name__} => {e}",
             ) from e
@@ -198,12 +198,12 @@ def retry_handler(
         for _ in range(retries):
             try:
                 return func(*args, **kwargs)
-            except HTTPException as e:
+            except QuipubaseException as e:
                 logger.error("%s: %s", e.__class__.__name__, e)
                 time.sleep(delay)
                 delay *= 2
                 continue
-        raise HTTPException(
+        raise QuipubaseException(
             status_code=500, detail=f"Exhausted retries after {retries} attempts"
         )
 
@@ -214,11 +214,11 @@ def retry_handler(
             try:
                 func_ = cast(Awaitable[T], func(*args, **kwargs))
                 return await func_
-            except HTTPException as e:
+            except QuipubaseException as e:
                 logger.error("%s: %s", e.__class__.__name__, e)
                 await asyncio.sleep(delay)
                 delay *= 2
-        raise HTTPException(
+        raise QuipubaseException(
             status_code=500,
             detail="Exhausted retries",
         )

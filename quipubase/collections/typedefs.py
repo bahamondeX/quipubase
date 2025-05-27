@@ -15,7 +15,7 @@ from rocksdict import Options  # pylint: disable=E0611
 from rocksdict import PlainTableFactoryOptions  # pylint: disable=E0611
 from rocksdict import Rdict, SliceTransform
 
-from ..utils.utils import encrypt, get_logger
+from ..utils.utils import encrypt, get_logger, handle
 
 
 T = tp.TypeVar("T", bound="Collection")
@@ -60,62 +60,75 @@ class JsonSchema(tpe.TypedDict, total=False):
 class JsonSchemaModel(BaseModel):
     """JSON Schema representation"""
 
-    model_config = {"extra": "allow"}
-    title: str = Field(..., examples=["Task"])
-    type: str = Field(default="object", examples=["object"])
+    model_config = {"extra": "allow", "arbitrary_types_allowed": True, "cache_strings": True, "json_schema_extra": {"example": {
+        "title": "Task",
+        "type": "object",
+        "properties": {
+            "done": {"type": "boolean"},
+            "title": {"type": "string"},
+            "description": {"type": "string"}
+        },
+        "required": ["title", "done"]
+    }}}
+    title: str = Field(...)
+    type: str = Field(default="object")
     properties: tp.Dict[str, tp.Any] = Field(
         ...,
-        examples=[
-            {
-                "done": {"type": "boolean"},
-                "title": {"type": "string"},
-                "description": {"type": "string"},
-            }
-        ],
     )
-    required: list[str] = Field(..., examples=[["title", "done"]])
+    required: tp.Optional[list[str]] = Field(default=None)
+    description: tp.Optional[str] = Field(default=None)
+
+    def _process_type(self, schema: dict, depth: int = 0) -> tp.Any:
+        """Helper method to process types with recursion control"""
+        if depth > 10:  # Max nesting depth
+            return str
+
+        if "enum" in schema:
+            enum_values = schema.get("enum", [])
+            if enum_values and all(isinstance(v, type(enum_values[0])) for v in enum_values):
+                return tp.Literal[tuple(enum_values)]  # type: ignore
+                
+        schema_type = schema.get("type", "string")
+        
+        if schema_type == "object" and "properties" in schema:
+            # Create nested model
+            nested_attrs = {}
+            for key, prop_schema in schema["properties"].items():
+                is_required = "required" in schema and key in schema["required"]
+                field_type = self._process_type(prop_schema, depth + 1)
+                
+                if is_required:
+                    nested_attrs[key] = (field_type, ...)
+                else:
+                    nested_attrs[key] = (tp.Optional[field_type], None)
+                    
+            model_name = f"Nested_{self.title}_{depth}_{abs(hash(str(schema)))}"
+            return create_model(model_name, **nested_attrs)
+            
+        elif schema_type == "array" and "items" in schema:
+            item_type = self._process_type(schema["items"], depth + 1)
+            return tp.List[item_type]
+            
+        return MAPPING.get(schema_type, str)
 
     def create_class(self):
-        """
-        Create a class based on the schema.
-        """
-        name = self.title
-        properties = self.properties
-        attributes: dict[str, tp.Any] = {}
-        for key, _ in properties.items():
-            if self.required and key in self.required:
-                attributes[key] = (self.cast_to_type(), ...)
+        """Create a class based on the schema with recursion control"""
+        attributes = {}
+        for key, prop_schema in self.properties.items():
+            is_required = self.required and key in self.required
+            field_type = self._process_type(prop_schema)
+            
+            if is_required:
+                attributes[key] = (field_type, ...)
             else:
-                attributes[key] = (
-                    tp.Optional[self.cast_to_type()],
-                    Field(default=None),
-                )
-        return create_model(
-            f"{name}::{abs(hash(json.dumps(self.model_json_schema(),sort_keys=True)))}",
-            __base__=Collection,
-            **attributes,
-        )
+                attributes[key] = (tp.Optional[field_type], Field(default=None))
 
+        model_name = f"{self.title}::{abs(hash(json.dumps(self.model_dump(), sort_keys=True)))}"
+        return create_model(model_name, __base__=Collection, **attributes)
 
     def cast_to_type(self) -> tp.Any:
-        """
-        Cast the schema to the corresponding Python type.
-        """
-        schema = self.model_dump()
-        if "enum" in schema:
-            enum_values = tuple(schema.get("enum") or [])
-            if enum_values and all(
-                isinstance(value, type(enum_values[0])) for value in enum_values
-            ):
-                return tp.Literal[enum_values]
-        elif schema.get("type") == "object":
-            if schema.get("properties"):
-                return self.create_class()
-        elif schema.get("type") == "array":
-            assert "items" in schema, "Missing 'items' in array schema"
-            return List[cast_to_type((schema.get("items") or {}))]  # type: ignore
-        return MAPPING.get(schema.get("type", "string"), str)
-
+        """Cast the schema to the corresponding Python type"""
+        return self._process_type(self.model_dump())
 
 
 class CollectionType(tpe.TypedDict):
@@ -135,7 +148,29 @@ class DeleteCollectionReturnType(tpe.TypedDict):
 
 
 class QuipubaseRequest(BaseModel):
-    model_config = {"extra": "allow"}
+    """
+    Quipubase Request
+    A model representing a request to the Quipubase API. This model includes fields for the action type, record ID, and any additional data required for the request.
+    Attributes:
+        event (QuipuActions): The action to be performed (create, read, update, delete, query).
+        id (Optional[str]): The unique identifier for the record. If None, a new record will be created.
+        data (Optional[Dict[str, Any]]): Additional data required for the request. This can include fields to update or query parameters.
+    """
+    model_config = {
+        "extra": "ignore",
+        "arbitrary_types_allowed": True,
+        "json_schema_extra": {
+            "example": {
+                "event": "create",
+                "id": None,
+                "data": {
+                    "title": "Example Record",
+                    "description": "This is an example record for testing purposes.",
+                    "done": False,
+                }
+            }
+        }
+    }
     event: QuipuActions = Field(default="query")
     id: tp.Optional[str] = Field(default=None)
     data: tp.Optional[tp.Dict[str, tp.Any]] = Field(default=None)
@@ -194,7 +229,10 @@ class Collection(BaseModel):
     """
 
     id: tp.Optional[str] = Field(default_factory=lambda: str(uuid4()))
-
+    model_config = {
+        "extra": "allow",
+        "arbitrary_types_allowed": True
+    }
     def __init__(self, **kwargs: tp.Any):
         super().__init__(**kwargs)
         if self.id is None:
@@ -271,6 +309,7 @@ class Collection(BaseModel):
         return opt
 
     @classmethod
+    @handle
     def retrieve(cls: tp.Type[T], *, id: str) -> T:  # pylint: disable=W0622
         """Retrieve a single record by ID."""
         raw_data = cls.db().get(id)
@@ -278,7 +317,7 @@ class Collection(BaseModel):
             raise KeyError(f"Record {id} not found")
         json_data = orjson.loads(raw_data)  # pylint: disable=E1101
         return cls.model_validate(json_data)
-
+    @handle
     def create(self) -> None:
         """Save/update the record in the database."""
         if self.id is None:
@@ -290,6 +329,7 @@ class Collection(BaseModel):
         ), f"Failed to persist record {self.id}"
 
     @classmethod
+    @handle
     def delete(cls, *, id: str) -> bool:  # pylint: disable=W0622
         """Delete a record by ID."""
         try:
@@ -333,6 +373,7 @@ class Collection(BaseModel):
             riter.next()
 
     @classmethod
+    @handle
     def update(
         cls: tp.Type[T], *, id: str, **kwargs: tp.Any
     ) -> tp.Optional[T]:  # pylint: disable=W0622
@@ -364,3 +405,4 @@ class Collection(BaseModel):
         )
 
 Collection.model_rebuild()
+QuipubaseRequest.model_rebuild()

@@ -9,10 +9,11 @@ from botocore.exceptions import ClientError # Import for specific error handling
 from botocore.config import Config # type:ignore
 from pathlib import Path
 
+from quipubase.utils.utils import asyncify
+
 
 from .lib import load_document
 from .typedefs import ChunkFile, GetOrCreateFile, TreeNode, FileType
-from ..utils.utils import asyncify
 
 # Ensure these environment variables are set correctly for GCS S3 compatibility
 # e.g., S3_ENDPOINT_URL="https://storage.googleapis.com"
@@ -62,7 +63,7 @@ class ContentService:
                 Body=await file.read(),
                 ContentType=file.content_type or "application/octet-stream",
             )
-            url = await self._get(key, bucket)
+            url = self._get(key, bucket)
             created = (time.perf_counter_ns() - start) / 1e9
             return GetOrCreateFile(
                 data=FileType(
@@ -78,11 +79,12 @@ class ContentService:
             print(f"An unexpected error occurred during put: {e}")
             raise e
 
-    async def get(self, path: str, bucket: str = GCS_BUCKET) -> GetOrCreateFile:
+    
+    def get(self, path: str, bucket: str = GCS_BUCKET) -> GetOrCreateFile:
         start = time.perf_counter_ns()
         try:
             key = os.path.join(GCS_PATH, path)
-            url = await self._get(key, bucket)
+            url = self._get(key, bucket)
             created = (time.perf_counter_ns() - start) / 1e9
             return GetOrCreateFile(
                 data=FileType(
@@ -98,7 +100,6 @@ class ContentService:
             print(f"An unexpected error occurred during get: {e}")
             raise e
 
-    @asyncify
     def _get(self, path:str, bucket:str = GCS_BUCKET)->str:
         key = os.path.join(GCS_PATH, path)
         return s3.generate_presigned_url(
@@ -107,7 +108,6 @@ class ContentService:
                 ExpiresIn=3600
             )
 
-    @asyncify
     def delete(self, path: str, bucket: str = GCS_BUCKET) -> dict[str, float]:
         start = time.perf_counter_ns()
         key = os.path.join(GCS_PATH, path)
@@ -125,8 +125,8 @@ class ContentService:
             print(f"An unexpected error occurred during delete: {e}")
             raise e
 
-
-    def _get_object_content(self,  key: str, bucket_name: str=GCS_BUCKET) -> str:
+    @asyncify
+    def _get_object_content(self,  key: str, bucket_name: str=GCS_BUCKET):
         """Helper to fetch object content and encode if binary."""
         try:
             response = s3.get_object(Bucket=bucket_name, Key=key)
@@ -143,45 +143,60 @@ class ContentService:
             print(f"An unexpected error occurred getting content for {key}: {e}")
             raise e
 
+    @asyncify
+    def _paginate(self, prefix: str = "", bucket: str = GCS_BUCKET) -> tp.Any:
+        """
+        Generador que maneja la paginación de resultados de S3/GCS.
+        Devuelve un diccionario con los resultados de cada página.
+        """
+        try:
+            paginator = s3.get_paginator('list_objects_v2')
+            return paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/')
+        except ClientError as e:
+            print(f"Error paginating objects: {e}")
+            raise e
+        except Exception as e:
+            print(f"An unexpected error occurred during pagination: {e}")
+            raise e
 
-    def scan(self, prefix: str = "", bucket: str = GCS_BUCKET) -> tp.Generator[TreeNode, None, None]:
+    async def scan(self, path: str = "", bucket: str = GCS_BUCKET):
         """
         Generador que recorre recursivamente un bucket GCS compatible con S3
         y produce TreeNode individuales para archivos y carpetas.
         """
-        paginator = s3.get_paginator('list_objects_v2')
-        pages = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/')
+        async def async_generator(prefix: str, bucket_: str):
+            """
+            Generador asíncrono que recorre un prefijo específico en el bucket
+            y produce TreeNode para cada archivo y carpeta.
+            """
+            for page in await self._paginate(prefix=prefix, bucket=bucket_):
+                # Carpetas
+                for common_prefix in page.get('CommonPrefixes', []):
+                    dir_prefix = common_prefix.get('Prefix')
+                    if not dir_prefix:
+                        continue
+                    name = Path(dir_prefix.rstrip('/')).name
 
-        for page in pages:
-            # Carpetas
-            for common_prefix in page.get('CommonPrefixes', []):
-                dir_prefix = common_prefix.get('Prefix')
-                if not dir_prefix:
-                    continue
-                name = Path(dir_prefix.rstrip('/')).name
+                    # Genera la carpeta como un nodo con contenido vacío
+                    yield TreeNode(
+                        type="folder",
+                        name=name,
+                        path=dir_prefix,
+                        content=[child async for child in async_generator(dir_prefix, bucket_)]
+                    )
+                # Archivos
+                for obj in page.get('Contents', []):
+                    key = obj.get('Key')
+                    if not key or key == prefix:
+                        continue
+                    name = Path(key).name
+                    content = await self._get_object_content(key=key, bucket_name=bucket_)
 
-                # Genera la carpeta como un nodo con contenido vacío
-                yield TreeNode(
-                    type="folder",
-                    name=name,
-                    path=dir_prefix,
-                    content=[]
-                )
-
-                # Recursión perezosa: yield desde subscan
-                yield from self.scan(dir_prefix, bucket)
-
-            # Archivos
-            for obj in page.get('Contents', []):
-                key = obj.get('Key')
-                if not key or key == prefix:
-                    continue
-                name = Path(key).name
-                content = self._get_object_content(bucket, key)
-
-                yield TreeNode(
-                    type="file",
-                    name=name,
-                    path=key,
-                    content=content
-                )
+                    yield TreeNode(
+                        type="file",
+                        name=name,
+                        path=key,
+                        content=content
+                    )
+        async for node in async_generator(prefix=path, bucket_=bucket):
+            yield node.model_dump_json(exclude_none=True)

@@ -153,6 +153,7 @@ class EmbeddingService(tp.Hashable):
         results: list[QueryMatch] = []
         for i in range(len(distances[0])):  # type: ignore
             result_dict = QueryMatch(
+                id=corpus[indices[0][i]].id,  # type: ignore
                 score=distances[0][i],  # type: ignore
                 content=corpus[indices[0][i]].content,  # type: ignore
             )

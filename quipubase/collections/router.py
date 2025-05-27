@@ -25,8 +25,9 @@ def route() -> APIRouter:
         data: JsonSchemaModel,
     ):
         """Create a new collection"""
-        return manager.create_collection(data=data)
-
+        response = manager.create_collection(data=data)
+        return response
+    
     @router.get("", response_model=list[CollectionMetadataType])
     def _():
         """List all collections"""

@@ -5,6 +5,8 @@ import json
 import logging
 import time
 import typing as tp
+import typing_extensions as tpe
+import traceback as tb
 from functools import partial, reduce, wraps
 from hashlib import sha256
 from typing import Any, Callable, Coroutine, Type, TypeVar, cast
@@ -17,7 +19,15 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 
-
+class ExceptionObject(tpe.TypedDict):
+    """
+    TypedDict for exception objects.
+    """
+    type: str
+    function:str
+    message: str
+    traceback: str
+    status_code: int
 
 def encrypt(s: str):
     return sha256((s).encode()).hexdigest()
@@ -70,7 +80,7 @@ logger = get_logger()
 
 
 def exception_handler(
-    func: Callable[P, T],
+    func: Callable[P, T],*,logger: logging.Logger = logger
 ) -> Callable[P, T]:
     """
     Decorator to handle exceptions in a function.
@@ -80,18 +90,37 @@ def exception_handler(
     """
 
     @wraps(func)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
-            if asyncio.iscoroutinefunction(func):
-                return await func(*args, **kwargs)
-            return func(*args, **kwargs)
+            return tp.cast(T, func(*args, **kwargs))  # type: ignore
+        except QuipubaseException as e:
+            exception_obj: ExceptionObject = {
+                "type": e.__class__.__name__,
+                "function": func.__name__,
+                "message": str(e),
+                "traceback": tb.format_exc(),
+                "status_code": e.status_code,
+            }
+            data = json.dumps(exception_obj, indent=4)
+            logger.error(data)
+            raise QuipubaseException(
+                status_code=e.status_code,
+                detail=data,
+            ) from e
         except Exception as e:
-            logger.error("%s: %s", e.__class__.__name__, e)
+            exception_obj: ExceptionObject = {
+                "type": e.__class__.__name__,
+                "function": func.__name__,
+                "message": str(e),
+                "traceback": tb.format_exc(),
+                "status_code": 500,
+            }
+            data = json.dumps(exception_obj, indent=4)
+            logger.error(data)
             raise QuipubaseException(
                 status_code=500,
-                detail=f"Internal Server Error: {e.__class__.__name__} => {e}",
+                detail=data,
             ) from e
-
     wrapper.__name__ = func.__name__
     return tp.cast(Callable[P, T], wrapper)
 
@@ -107,15 +136,12 @@ def timing_handler(
     """
 
     @wraps(func)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         start = time.time()
-        if asyncio.iscoroutinefunction(func):
-            result = await func(*args, **kwargs)
         result = func(*args, **kwargs)
         end = time.time()
         logger.info("%s took %s seconds", func.__name__, end - start)
         return tp.cast(T, result)  # type: ignore
-
     wrapper.__name__ = func.__name__
     return tp.cast(T, wrapper)  # type: ignore
 
@@ -133,14 +159,11 @@ def retry_handler(
     """
 
     @wraps(func)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         nonlocal delay
         for _ in range(retries):
             try:
-                if asyncio.iscoroutinefunction(func):
-                    result = await func(*args, **kwargs)
-                else:
-                    result = func(*args, **kwargs)
+                result = func(*args, **kwargs)
                 return tp.cast(T, result)  # type: ignore
             except QuipubaseException as e:
                 logger.error("%s: %s", e.__class__.__name__, e)
@@ -150,7 +173,6 @@ def retry_handler(
         raise QuipubaseException(
             status_code=500, detail=f"Exhausted retries after {retries} attempts"
         )
-
     wrapper.__name__ = func.__name__
     return tp.cast(T, wrapper)  # type: ignore
 
@@ -164,8 +186,7 @@ def handle(func: Callable[P, T], retries: int = 3, delay: int = 1) -> Callable[P
     :param delay: Delay between retries.
     :return: Decorated function.
     """
-    eb = partial(retry_handler, retries=retries, delay=delay)
-    return reduce(lambda f, g: g(f), [exception_handler, timing_handler, eb], func)  # type: ignore
+    return reduce(lambda f, g: g(f), [exception_handler, timing_handler], func)  # type: ignore
 
 
 def asyncify(func: Callable[P, T]) -> Callable[P, Coroutine[None, T, T]]:

@@ -20,16 +20,17 @@ Dependencies:
 
 import os
 import typing as tp
-from uuid import uuid4
 
 import numpy as np
 import orjson
 import typing_extensions as tpe
 from numpy.typing import NDArray
-from pydantic import BaseModel, Field, WithJsonSchema, field_serializer, field_validator
+from pydantic import BaseModel, WithJsonSchema, field_serializer, field_validator, computed_field
 from rocksdict import Rdict
 
-DIR: str = "/app/data"
+from quipubase.utils.utils import handle, encrypt
+
+DIR: str = "./data"
 EMB: str = "/embeddings/"
 
 Texts: tpe.TypeAlias = tp.Union[str, list[str]]
@@ -46,9 +47,15 @@ class Embedding(BaseModel):
         content (str | list[str]): Text content or list of strings
         embedding (NDArray[np.float32]): Vector representation of the content
     """
-
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    content: str | list[str]
+    model_config = {
+        "extra": "allow",
+        "arbitrary_types_allowed": True,
+        "json_encoders": {
+            NDArray: lambda v: v.tolist(),
+            np.ndarray: lambda v: v.tolist(),
+        },
+    }
+    content: str
     embedding: tp.Annotated[
         NDArray[np.float32],
         WithJsonSchema({"type": "array", "items": {"type": "number"}}),
@@ -62,6 +69,11 @@ class Embedding(BaseModel):
         },
     }
 
+    @computed_field(return_type=str)
+    @property
+    def id(self):
+        return encrypt(self.content)
+    
     @field_serializer("embedding")
     @classmethod
     def serialize_embedding(cls, v: tp.Any):
@@ -85,6 +97,7 @@ class Embedding(BaseModel):
         return Rdict(f"{DIR}{EMB}{namespace}")
 
     @classmethod
+    @handle
     def retrieve(cls, *, id: str, namespace: str):
         db = cls.db(namespace=namespace)
         item = db.get(id)
@@ -92,12 +105,18 @@ class Embedding(BaseModel):
             return None
         return cls(**orjson.loads(item))
 
+    @handle
     def create(self, *, namespace: str):
         db = self.db(namespace=namespace)
+        if db.key_may_exist(self.id):
+            data = db.get(self.id)
+            if data is None:
+                db[self.id] = self.model_dump_json()
         db[self.id] = self.model_dump_json()
         return self
 
     @classmethod
+    @handle
     def delete(cls, *, id: str, namespace: str):
         db = cls.db(namespace=namespace)
         if db.key_may_exist(id):
@@ -117,7 +136,6 @@ class Embedding(BaseModel):
                 iterable.next()
                 continue
 
-
 class QueryMatch(BaseModel):
     """
     Represents a similarity search result.
@@ -135,27 +153,57 @@ class QueryMatch(BaseModel):
             np.ndarray: lambda v: v.tolist(),
         },
     }
-
+    id: str
     score: float
     content: str
 
 
 class EmbedText(BaseModel):
+    """
+    Base input for embedding text content.
+    Attributes:
+        content (list[str]): List of text strings to be embedded
+        model (EmbeddingModel): Model type for generating embeddings    
+    """
+    model_config = {
+        "extra": "allow",
+        "arbitrary_types_allowed": True,
+        "json_encoders": {
+            NDArray: lambda v: v.tolist(),
+            np.ndarray: lambda v: v.tolist(),
+        },
+        "json_schema_extra": {
+            "description": "Base model for text embeddings",
+            "examples": [
+                {
+                    "content": ["I love Quipubase!", "I love myself!", "I love my family!", "I love my friends!", "I love my country!", "I love my job!"],
+                    "model": "poly-sage"
+                }
+            ]
+        }
+    }
+  
     content: list[str]
     model: EmbeddingModel
 
-
-class UpsertText(EmbedText):
-    namespace: str
-
-
 class QueryText(EmbedText):
-    namespace: str
+    model_config = {
+        "json_schema_extra": {
+            "description": "Model for querying text embeddings",
+            "examples": [
+                {
+                    "content": ["I love you!"],
+                    "model": "poly-sage",
+                    "namespace": "quipubase",
+                    "top_k": 5
+                }
+            ]
+        }
+    }
     top_k: int
 
 
 class DeleteText(BaseModel):
-    namespace: str
     ids: list[str]
 
 
@@ -178,11 +226,12 @@ class UpsertResponse(tpe.TypedDict):
 
     Fields:
         contents (list[SemanticContent]): List of inserted/updated items
-        upsertedCount (int): Number of items processed
+        count (int): Number of items processed
     """
 
-    contents: list[SemanticContent]
-    upsertedCount: int
+    data: list[SemanticContent]
+    count: int
+    ellapsed: float
 
 
 class QueryResponse(tpe.TypedDict):
@@ -191,11 +240,12 @@ class QueryResponse(tpe.TypedDict):
 
     Fields:
         matches (list[QueryMatch]): List of matching items
-        readCount (int): Total number of items considered
+        count (int): Total number of items considered
     """
 
-    matches: list[QueryMatch]
-    readCount: int
+    data: list[QueryMatch]
+    count: int
+    ellapsed:float
 
 
 class DeleteResponse(tpe.TypedDict):
@@ -204,14 +254,16 @@ class DeleteResponse(tpe.TypedDict):
 
     Fields:
         embeddings (list[str]): List of deleted item IDs
-        deletedCount (int): Number of items deleted
+        count (int): Number of items deleted
+        ellapsed (float): Seconds taken to perform the action
     """
 
-    embeddings: list[str]
-    deletedCount: int
+    data: list[str]
+    count: int
+    ellapsed: float
 
 
 class EmbedResponse(tpe.TypedDict):
     data: list[Embedding]
-    created: float
-    embedCount: int
+    count: int
+    ellapsed: float

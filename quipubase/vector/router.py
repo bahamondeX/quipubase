@@ -1,8 +1,8 @@
 import time
 
 import numpy as np
-from fastapi import APIRouter, HTTPException
-
+from fastapi import APIRouter
+from ..utils.exceptions import QuipubaseException
 from .services import VectorStoreService
 from .typedefs import (
     DeleteResponse,
@@ -13,15 +13,18 @@ from .typedefs import (
     QueryResponse,
     QueryText,
     UpsertResponse,
-    UpsertText,
 )
 
 
 def route() -> APIRouter:
     app = APIRouter(tags=["vector"], prefix="/vector")
 
-    @app.post("/upsert", response_model=UpsertResponse)
-    async def _(data: UpsertText):
+    @app.get("/{namespace}/{id}")
+    def _(namespace: str, id: str):
+        return Embedding.retrieve(namespace=namespace, id=id)
+
+    @app.post("/{namespace}", response_model=UpsertResponse)
+    def _(namespace:str, data: EmbedText):
         """
         Upsert texts into the vector store.
 
@@ -34,7 +37,7 @@ def route() -> APIRouter:
                 UpsertResponse containing the IDs of the upserted embeddings and count
         """
         try:
-            store = VectorStoreService(namespace=data.namespace, model=data.model)
+            store = VectorStoreService(namespace=namespace, model=data.model)
             embeddings = [
                 Embedding(content=text, embedding=store.embed(text))
                 for text in data.content
@@ -42,10 +45,10 @@ def route() -> APIRouter:
             response = store.upsert(embeddings)
             return response
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise QuipubaseException(status_code=500, detail=str(e))
 
-    @app.post("/query", response_model=QueryResponse)
-    async def _(data: QueryText):
+    @app.put("/{namespace}", response_model=QueryResponse)
+    def _(namespace:str,data: QueryText):
         """
         Query the vector store for similar texts.
 
@@ -59,13 +62,14 @@ def route() -> APIRouter:
                 QueryResponse containing the matched texts and their similarity scores
         """
         try:
-            store = VectorStoreService(namespace=data.namespace, model=data.model)
+            store = VectorStoreService(namespace=namespace, model=data.model)
             return store.query(store.embed(data.content).tolist(), data.top_k)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise QuipubaseException(status_code=500, detail=str(e))
 
-    @app.delete("/delete", response_model=DeleteResponse)
-    async def _(
+    @app.delete("/{namespace}", response_model=DeleteResponse)
+    def _(
+        namespace: str,
         data: DeleteText,
     ):
         """
@@ -79,16 +83,16 @@ def route() -> APIRouter:
                 DeleteResponse containing the IDs of the deleted embeddings and count
         """
         try:
-            store = VectorStoreService(namespace=data.namespace, model="mini-scope")
+            store = VectorStoreService(namespace=namespace, model="mini-scope")
             response = store.delete(ids=data.ids)
             return response
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise QuipubaseException(status_code=500, detail=str(e))
 
-    @app.post("/embed", response_model=EmbedResponse)
-    async def _(data: EmbedText):
+    @app.post("", response_model=EmbedResponse)
+    def _(data: EmbedText):
         start = time.perf_counter()
-        vs = VectorStoreService(namespace="default", model=data.model)
+        vs = VectorStoreService(namespace="quipubase", model=data.model)
         embeddings: list[list[float]] = vs.embed(data.content).tolist()
         end = time.perf_counter()
         return EmbedResponse(
@@ -96,8 +100,9 @@ def route() -> APIRouter:
                 Embedding(content=c, embedding=np.array(e).astype(np.float32))
                 for c, e in zip(data.content, embeddings)
             ],
-            created=end - start,
-            embedCount=len(embeddings),
+            ellapsed=end - start,
+            count=len(embeddings),
+            
         )
 
     return app
