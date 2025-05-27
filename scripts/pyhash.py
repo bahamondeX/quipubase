@@ -127,7 +127,8 @@ def main():
 @main.command()
 @click.option('--message', '-m', required=True, help='Commit message')
 @click.option('--hash-only', is_flag=True, help='Only generate hash without committing')
-def commit(message: str, hash_only: bool):
+@click.option('--push', is_flag=True, help='Push changes to remote after commit')
+def commit(message: str, hash_only: bool, push: bool):
     """Create a git commit with a unique hash based on file changes"""
     hasher = GitHasher()
     changes = hasher.get_file_changes()
@@ -150,9 +151,14 @@ def commit(message: str, hash_only: bool):
         
         click.echo(f"Created commit with hash: {commit_hash}")
         
-        # Push changes
-        subprocess.run(['git', 'push'], check=True)
-        click.echo("Changes pushed successfully")
+        if push:
+            try:
+                subprocess.run(['git', 'push'], check=True)
+                click.echo("Changes pushed successfully")
+            except subprocess.CalledProcessError as e:
+                click.echo(f"Warning: Failed to push changes: {e}")
+        else:
+            click.echo("Commit created successfully. Use --push to push changes to remote")
         
     except subprocess.CalledProcessError as e:
         click.echo(f"Error: {e}")
