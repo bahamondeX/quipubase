@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request
 from sse_starlette import EventSourceResponse
 
 from ..collections.service import CollectionManager
-from ..collections.typedefs import EventType, PubType, QuipubaseRequest
+from ..collections.typedefs import SubResponse, PubResponse, QuipubaseRequest
 from ..utils.utils import get_logger, handle
 from ..utils.exceptions import QuipubaseException
 from . import PubSub
@@ -20,7 +20,7 @@ def route() -> APIRouter:
     col_manager = CollectionManager()
     
     @handle
-    @router.post("/events/{collection_id}", response_model=PubType)
+    @router.post("/events/{collection_id}", response_model=PubResponse)
     async def _(collection_id: str, req: QuipubaseRequest):
         klass = col_manager.retrieve_collection(collection_id)
     
@@ -53,10 +53,10 @@ def route() -> APIRouter:
             item = klass.retrieve(id=req.id)
         else:
             assert req.event == "stop"
-        event = EventType[klass](event=req.event, data=item)
+        event = SubResponse[klass](event=req.event, data=item)
         await pubsub.pub(collection_id, event)
         assert item is not None
-        return PubType[klass](collection=collection_id, data=item, event=req.event)
+        return PubResponse[klass](collection=collection_id, data=item, event=req.event)
     
 
     @router.get("/events/{collection_id}", response_class=EventSourceResponse)

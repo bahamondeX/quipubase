@@ -1,7 +1,7 @@
 import asyncio
 import typing as tp
 
-from quipubase.collections.typedefs import Collection, EventType
+from quipubase.collections.typedefs import Collection, SubResponse
 
 from ..utils import db
 T = tp.TypeVar("T", bound=Collection)
@@ -18,10 +18,10 @@ class PubSub(tp.Generic[T]):
         cls._model = model
         return cls
 
-    async def pub(self, channel: str, event: EventType[T]) -> None:
+    async def pub(self, channel: str, event: SubResponse[T]) -> None:
         await db.publish(channel, event.model_dump_json())  # type: ignore
 
-    async def sub(self, channel: str) -> tp.AsyncGenerator[EventType[T], None]:
+    async def sub(self, channel: str) -> tp.AsyncGenerator[SubResponse[T], None]:
         await self._pubsub.subscribe(channel)  # type: ignore
         try:
             while True:
@@ -31,7 +31,7 @@ class PubSub(tp.Generic[T]):
                 if msg and msg["type"] == "message":
                     try:
                         raw = msg["data"]  # type: ignore
-                        event = EventType[self._model].model_validate_json(raw)  # type: ignore
+                        event = SubResponse[self._model].model_validate_json(raw)  # type: ignore
                         yield event
                     except Exception:
                         continue

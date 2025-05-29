@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import time
+import base64c as base64
 import typing as tp
 import typing_extensions as tpe
 import traceback as tb
@@ -30,8 +31,7 @@ class ExceptionObject(tpe.TypedDict):
     status_code: int
 
 def encrypt(s: str):
-    return sha256((s).encode()).hexdigest()
-
+    return sha256(s.encode()).hexdigest()
 
 def get_key(*, object: dict[str, Any], key: str) -> None:
     try:

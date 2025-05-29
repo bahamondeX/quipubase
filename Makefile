@@ -64,7 +64,9 @@ build:
 	docker build -t $(APP_NAME) .
 
 deploy:
+	git add 
 	docker compose up -d --build --remove-orphans --force-recreate
+
 
 # ─────────────────────────────────────────────────────────────
 # Maintenance

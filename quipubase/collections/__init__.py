@@ -1,11 +1,11 @@
-from .typedefs import Collection, EventType, PubType, CollectionType, JsonSchemaModel, QuipubaseRequest
+from .typedefs import Collection, SubResponse, PubResponse, CollectionType, JsonSchemaModel, QuipubaseRequest
 from .service import CollectionManager
 from .router import route
 
-__all__ = ["EventType", 
+__all__ = ["SubResponse", 
 		   "CollectionManager", 
 		   "Collection", 
-		   "PubType", 
+		   "PubResponse", 
 		   "CollectionType",	
 		   "JsonSchemaModel",
 		   "QuipubaseRequest",

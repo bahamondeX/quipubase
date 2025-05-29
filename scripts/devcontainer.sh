@@ -6,7 +6,7 @@ set -euxo pipefail
 # --- GCSFuse setup ---
 # Replace with your actual bucket name and mount path
 GCS_BUCKET_NAME="quipubase-store" # <-- IMPORTANT: REPLACE THIS
-GCS_MOUNT_POINT="/app/data" # <-- IMPORTANT: REPLACE THIS
+GCS_MOUNT_POINT="./data" # <-- IMPORTANT: REPLACE THIS
 
 # Create the mount point if it doesn't exist
 mkdir -p ${GCS_MOUNT_POINT}

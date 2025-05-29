@@ -35,14 +35,14 @@ MAPPING: dict[str, tp.Type[tp.Any]] = {
 
 QuipuActions: tpe.TypeAlias = tp.Literal["create", "read", "update", "delete", "query", "stop"]
 
-class EventType(BaseModel, tp.Generic[T]):
+class SubResponse(BaseModel, tp.Generic[T]):
     """Event model"""
 
     event: QuipuActions
-    data: T | list[T] | None
+    data: T | list[T]
 
 
-class PubType(BaseModel, tp.Generic[T]):
+class PubResponse(BaseModel, tp.Generic[T]):
     collection: str
     data: T | list[T]
     event: QuipuActions
@@ -123,7 +123,7 @@ class JsonSchemaModel(BaseModel):
             else:
                 attributes[key] = (tp.Optional[field_type], Field(default=None))
 
-        model_name = f"{self.title}::{abs(hash(json.dumps(self.model_dump(), sort_keys=True)))}"
+        model_name = f"{self.title}::{encrypt(self.model_dump_json(exclude_none=True))}"
         return create_model(model_name, __base__=Collection, **attributes)
 
     def cast_to_type(self) -> tp.Any:
@@ -252,10 +252,10 @@ class Collection(BaseModel):
     @classmethod
     def col_path(cls):
         """The absolute path to the collection directory."""
-        home_dir = Path("./data/collections").as_posix()
-        if not os.path.exists(os.path.join(home_dir, cls.col_id())):
-            os.makedirs(os.path.join(home_dir, cls.col_id()), exist_ok=True)
-        return os.path.join(home_dir, cls.col_id())
+        base_dir = Path("./data/collections").as_posix()
+        if not os.path.exists(os.path.join(base_dir, cls.col_id())):
+            os.makedirs(os.path.join(base_dir, cls.col_id()), exist_ok=True)
+        return os.path.join(base_dir, cls.col_id())
 
     @classmethod
     def col_id(cls):
@@ -399,10 +399,7 @@ class Collection(BaseModel):
             os.makedirs(cls.col_path(), exist_ok=True)
         schema_json_path = Path(cls.col_path()) / "schema.json"
         schema_json_path.write_text(json.dumps(data, sort_keys=True))
-        readme_path = Path(cls.col_path()) / "README.md"
-        readme_path.write_text(
-            cls.model_json_schema().get("description") or cls.__doc__ or ""
-        )
+
 
 Collection.model_rebuild()
 QuipubaseRequest.model_rebuild()

@@ -12,6 +12,7 @@ from .events import route as pubsub_router
 from .files import route as content_router
 from .collections import route as data_router
 from .vector import route as setup_routes
+from .chat import route as chat_router
 
 __all__ = [
     "data_router",
@@ -19,6 +20,7 @@ __all__ = [
     "setup_routes",
     "auth_router",
     "content_router",
+    "chat_router",
 ]
 
 
@@ -57,6 +59,7 @@ def create_app():
     app.include_router(setup_routes(), prefix="/v1")
     app.include_router(auth_router(), prefix="/v1")
     app.include_router(content_router(), prefix="/v1")
+    app.include_router(chat_router(), prefix="/v1")
     app.mount("/blobs", static, name="blobs")
     @app.get("/", include_in_schema=False)
     def _():
