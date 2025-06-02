@@ -11,6 +11,9 @@ from .typedefs import JsonSchemaModel
 from ..utils.utils import get_logger
 from .service import CollectionManager
 
+# Import or define the encrypt function
+from ..utils.utils import encrypt
+
 logger = get_logger("[CollectionRouter]")
 manager = CollectionManager()
 
@@ -25,9 +28,12 @@ def route() -> APIRouter:
         data: JsonSchemaModel,
     ):
         """Create a new collection"""
-        response = manager.create_collection(data=data)
-        return response
-    
+        try:
+            collection_id = encrypt(data.model_dump_json())
+            return manager.get_collection(col_id=collection_id)
+        except:
+            return manager.create_collection(data=data)
+        
     @router.get("", response_model=list[CollectionMetadataType])
     def _():
         """List all collections"""

@@ -1,4 +1,5 @@
 import typing as tp
+import typing_extensions as tpe
 import httpx
 import json
 import os
@@ -10,6 +11,12 @@ from openai._utils._proxy import LazyProxy
 from openai import AsyncOpenAI
 
 T = tp.TypeVar("T")
+
+
+class MessageTypedDict(tpe.TypedDict):
+    role: tp.Literal["user", "assistant", "system"]
+    content: str
+
 
 class Tool(BaseModel, LazyProxy[T], ABC):
     """Base Tool class for all vendors tool framework implementations"""
@@ -24,9 +31,9 @@ class Tool(BaseModel, LazyProxy[T], ABC):
                 "parameters": cls.model_json_schema().get("properties", {}),
             }
         )
-    
+
     @abstractmethod
-    def run(self) -> tp.AsyncGenerator[str, tp.Any]:
+    def run(self) -> tp.AsyncGenerator[MessageTypedDict, tp.Any]:
         raise NotImplementedError
 
     @abstractmethod
@@ -36,9 +43,9 @@ class Tool(BaseModel, LazyProxy[T], ABC):
 
 class OpenAITool(Tool[AsyncOpenAI]):
     @abstractmethod
-    def run(self)->tp.AsyncGenerator[str, tp.Any]:
+    def run(self) -> tp.AsyncGenerator[MessageTypedDict, tp.Any]:
         raise NotImplementedError
-    
+
     def __load__(self):
         return AsyncOpenAI(api_key=os.getenv("GEMINI_API_KEY"), base_url=os.getenv("GEMINI_BASE_URL"))
 
@@ -51,20 +58,11 @@ class GoogleSearch(OpenAITool):
     """
     q: str = Field(..., description="The query to search for.")
 
-    async def run(self):
+    async def run(self) -> tp.AsyncGenerator[MessageTypedDict, tp.Any]:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"https://www.googleapis.com/customsearch/v1?key={os.getenv('SEARCH_ENGINE_API_KEY')}&cx={os.getenv('SEARCH_ENGINE_ID')}&q={self.q}")
             data = response.json()
-            yield json.dumps(data)
-
-
-class CodeCompletion(OpenAITool):
-    """
-    CodeCompletion
-    --------------
-    This tool performs a code completion on `Nuxt 3` sandbox by providing the `filePath:str` (~/{type}/{filename}) if type is in ('component','composable','styles') if its an edit the path is inferred, `type:str enum['component','composable','style','edit'], `context?:str` is it's an edit with previous content. Then with this metadata, the coding agent generated the code on the proper location within the sandbox. It can be used multiple times within an LLM run to perform a coding task and generate multiple artifacts.
-    """
-    type:tp.Literal["component","composable","style","edit"]
+            yield {"role": "assistant", "content": json.dumps(data)}
 
 
 class LLMRun(OpenAITool):
@@ -78,8 +76,13 @@ class LLMRun(OpenAITool):
     """
     model: tp.Literal["gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-05-06"] = Field(default="gemini-2.5-flash-preview-05-20", description="The model to use for the chat completion.")
     messages: tp.List[ChatCompletionMessageParam] = Field(..., description="The messages to send to the model.")
-    tools:tp.List[ChatCompletionToolParam] = Field(default=[t.tool_definition() for t in OpenAITool.__subclasses__()], description="The tools that can be used by the assistant.")
-    async def run(self):
+    tools: tp.List[ChatCompletionToolParam] = Field(
+        default=[t.tool_definition() for t in OpenAITool.__subclasses__()],
+        description="The tools that can be used by the assistant.",
+    )
+    stream: bool = Field(default=True)
+
+    async def run(self) -> tp.AsyncGenerator[MessageTypedDict, tp.Any]:
         client = self.__load__()
         response = await client.chat.completions.create(
             model=self.model,
@@ -93,17 +96,24 @@ class LLMRun(OpenAITool):
             if not calls:
                 content = chunk.choices[0].delta.content
                 if content:
-                    yield content
+                    yield {"role": "assistant", "content": content}
                     string += content
                 continue
             for call in calls:
-                if not call.function or not call.function.name or not json.loads(call.function.arguments):
+                if (
+                    not call.function
+                    or not call.function.name
+                    or not call.function.arguments
+                ):
                     continue
                 tool_class = next((t for t in OpenAITool.__subclasses__() if t.__name__ == call.function.name), None)
                 if tool_class is None:
-                    continue
-                tool = tool_class.model_validate(json.loads(call.function.arguments))
-                async for chunk in tool.run():
-                    yield chunk
-                    string += chunk
+                    yield json.loads(call.function.arguments)
+                else:
+                    tool = tool_class.model_validate(
+                        json.loads(call.function.arguments)
+                    )
+                    async for content in tool.run():
+                        yield content
+                        string += content["content"]
             self.messages.append({"role": "assistant", "content": string})

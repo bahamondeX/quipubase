@@ -1,0 +1,1 @@
+{"additionalProperties": true, "properties": {"id": {"anyOf": [{"type": "string"}, {"type": "null"}], "default": null, "title": "Id"}}, "title": "BaseModel::aa0ddbcff685f1633171ec6306acf8e72a0c8ca1c67be81fa66246319efe2c68", "type": "object"}

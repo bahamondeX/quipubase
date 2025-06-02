@@ -17,10 +17,3 @@ def client():
     app = create_app()
     with TestClient(app) as client:
         yield client
-
-
-class TestModel(Collection):
-    """A simple model for testing"""
-
-    name: str
-    price: int
