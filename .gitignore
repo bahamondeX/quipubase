@@ -3,8 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-
+./data/blobs/*
+./data/collections/*
+./data/embeddings/*
 # Distribution / packaging
+.claude
 .Python
 build/
 develop-eggs/
