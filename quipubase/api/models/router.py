@@ -6,7 +6,7 @@ from fastapi import APIRouter
 def route():
     app = APIRouter(prefix="/models", tags=["models"])
 
-    @app.get("/")
+    @app.get("")
     async def _() -> list[dict[str, tp.Any]]:
         return [
             {
