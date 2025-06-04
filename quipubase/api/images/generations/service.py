@@ -19,7 +19,7 @@ GCS_BUCKET = os.getenv(
 )  # Make bucket configurable via env var
 
 GCS_PATH = (
-    "/images"  # This path doesn't seem to be used directly by boto3 operations here.
+    "images"  # This path doesn't seem to be used directly by boto3 operations here.
 )
 
 
@@ -55,9 +55,7 @@ class ImageGenerationRequest(
         generation_model = ImageGenerationModel.from_pretrained(
             "imagen-4.0-generate-preview-05-20"
         )
-
-        if self.response_format == "url":
-            images = generation_model.generate_images(
+        images = generation_model.generate_images(
                 prompt=self.prompt,
                 number_of_images=self.n,
                 aspect_ratio=self.ratio,
@@ -65,38 +63,31 @@ class ImageGenerationRequest(
                 safety_filter_level="block_few",
                 person_generation="allow_adult",
             )
-        else:
-            images = generation_model.generate_images(
-                prompt=self.prompt,
-                number_of_images=self.n,
-                aspect_ratio=self.ratio,
-                add_watermark=False,
-                safety_filter_level="block_few",
-                person_generation="allow_adult",
-            )
-            for img in images:
-                if self.response_format == "b64_json":
-                    yield {"b64_json": img._as_base64_string()}
-                elif self.response_format == "url":
-                    try:
-                        image_id = md5(img._as_base64_string().encode()).hexdigest()
-                        image_key = f"{GCS_PATH}/{image_id}.png"
-                        s3.put_object(
-                            Bucket=GCS_BUCKET,
-                            Key=image_key,
-                            Body=img._image_bytes,
-                            ContentType="image/png",
-                        )
-                        image_url = s3.generate_presigned_url(
-                            "get_object",
-                            Params={"Bucket": GCS_BUCKET, "Key": image_key},
-                            ExpiresIn=3600,
-                        )
-                        yield {"url": image_url}
-                    except Exception as e:
-                        yield {
-                            self.response_format: f"Failed to upload image to S3: {e}"
-                        }
+        for img in images:
+            print(img._mime_type)
+            if self.response_format == "b64_json":
+                yield {"b64_json": img._as_base64_string()}
+            elif self.response_format == "url":
+                try:
+                    image_id = md5(img._as_base64_string().encode()).hexdigest()
+                    ext = img._mime_type.split('/')[-1]
+                    image_key = f"{GCS_PATH}/{image_id}.{ext}"
+                    s3.put_object(
+                        Bucket=GCS_BUCKET,
+                        Key=image_key,
+                        Body=img._image_bytes,
+                        ContentType=img._mime_type
+                    )
+                    image_url = s3.generate_presigned_url(
+                        "get_object",
+                        Params={"Bucket": GCS_BUCKET, "Key": image_key},
+                        ExpiresIn=3600,
+                    )
+                    yield {"url": image_url}
+                except Exception as e:
+                    yield {
+                        self.response_format: f"Failed to upload image to S3: {e}"
+                    }
             else:
                 raise NotImplementedError("Unsupported response format.")
 

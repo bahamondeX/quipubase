@@ -200,17 +200,16 @@ class CollectionManager:
         try:
             # Create collection class
             klass = data.create_class()
+            klass.init()
             col_id = klass.col_id()
 
             # Check if collection already exists
-            if self.db.get(col_id):
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Collection '{col_id}' already exists",
-                )
+            col = self.db.get(col_id)
+            if col:
+                return self.get_collection(col_id=col_id)
 
             # Initialize collection
-            klass.init()
+            
 
             # Store in database
             try:
