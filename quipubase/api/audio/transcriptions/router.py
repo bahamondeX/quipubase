@@ -31,7 +31,7 @@ def route():
             None, description="An optional text to guide the model's style"
         ),
         response_format: str = Form(
-            "json", description="The format of the transcript output"
+            "text", description="The format of the transcript output"
         ),
         temperature: float = Form(
             0, ge=0, le=1, description="The sampling temperature"
