@@ -19,7 +19,7 @@ def route():
     async def _(
         request: Request,
         code: tp.Optional[str] = Query(default=None),
-        provider: tp.Literal["github", "google"] = Path(...)
+        provider: tp.Literal["github", "google"] = Path(...),
     ):
         if provider == "github" and code:
             redirect_url = request.cookies.get("redirect_url") or APP_URL

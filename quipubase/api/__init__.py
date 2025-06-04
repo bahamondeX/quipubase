@@ -6,16 +6,17 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .collections import Collection, CollectionType, JsonSchemaModel, QuipubaseRequest
+from .audio import route as audio_router
 from .auth import route as auth_router
+from .chat import route as chat_router
+from .collections import (Collection, CollectionType, JsonSchemaModel,
+                          QuipubaseRequest)
+from .collections import route as data_router
 from .events import route as pubsub_router
 from .files import route as content_router
-from .collections import route as data_router
-from .vector import route as setup_routes
-from .models import route as models_router
-from .chat import route as chat_router
 from .images import route as images_router
-from .audio import route as audio_router
+from .models import route as models_router
+from .vector import route as setup_routes
 
 __all__ = [
     "data_router",

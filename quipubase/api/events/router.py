@@ -6,11 +6,11 @@ from typing import AsyncIterator
 from fastapi import APIRouter, Request
 from sse_starlette import EventSourceResponse
 
-from ..collections.service import CollectionManager
-from ..collections.typedefs import SubResponse, PubResponse, QuipubaseRequest
-from ...lib.utils import get_logger, handle
 from ...lib.exceptions import QuipubaseException
-from . import PubSub
+from ...lib.utils import get_logger, handle
+from ..collections.service import CollectionManager
+from ..collections.typedefs import PubResponse, QuipubaseRequest, SubResponse
+from .service import PubSub
 
 logger = get_logger("[PubSubRouter]")
 

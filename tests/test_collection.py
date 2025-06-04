@@ -6,17 +6,15 @@ including CRUD operations, validation, and error handling.
 """
 
 import json
-import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi import HTTPException, status
 
 from quipubase.collections.service import CollectionManager
-from quipubase.collections.typedefs import (
-    JsonSchemaModel,
-    Collection
-)
+from quipubase.collections.typedefs import Collection, JsonSchemaModel
 from quipubase.utils.exceptions import QuipubaseException
 
 
@@ -31,11 +29,11 @@ class TestJsonSchemaModel:
             properties={
                 "name": {"type": "string"},
                 "age": {"type": "integer"},
-                "active": {"type": "boolean"}
+                "active": {"type": "boolean"},
             },
-            required=["name", "age"]
+            required=["name", "age"],
         )
-        
+
         model_class = schema.create_class()
         assert model_class.__name__.startswith("TestModel::")
         assert issubclass(model_class, Collection)
@@ -50,19 +48,21 @@ class TestJsonSchemaModel:
                     "type": "object",
                     "properties": {
                         "name": {"type": "string"},
-                        "email": {"type": "string"}
+                        "email": {"type": "string"},
                     },
-                    "required": ["name"]
+                    "required": ["name"],
                 },
-                "count": {"type": "integer"}
+                "count": {"type": "integer"},
             },
-            required=["user"]
+            required=["user"],
         )
-        
+
         model_class = schema.create_class()
-        instance = model_class(user={"name": "John", "email": "john@example.com"}, count=5)
-        assert hasattr(instance, 'user')
-        assert hasattr(instance, 'count')
+        instance = model_class(
+            user={"name": "John", "email": "john@example.com"}, count=5
+        )
+        assert hasattr(instance, "user")
+        assert hasattr(instance, "count")
 
     def test_create_array_model(self):
         """Test creating a model with array properties"""
@@ -70,22 +70,16 @@ class TestJsonSchemaModel:
             title="ArrayModel",
             type="object",
             properties={
-                "tags": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "scores": {
-                    "type": "array", 
-                    "items": {"type": "number"}
-                }
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "scores": {"type": "array", "items": {"type": "number"}},
             },
-            required=["tags"]
+            required=["tags"],
         )
-        
+
         model_class = schema.create_class()
         instance = model_class(tags=["tag1", "tag2"], scores=[1.5, 2.0])
-        assert hasattr(instance, 'tags')
-        assert hasattr(instance, 'scores')
+        assert hasattr(instance, "tags")
+        assert hasattr(instance, "scores")
 
     def test_enum_support(self):
         """Test creating a model with enum properties"""
@@ -93,17 +87,14 @@ class TestJsonSchemaModel:
             title="EnumModel",
             type="object",
             properties={
-                "status": {
-                    "type": "string",
-                    "enum": ["active", "inactive", "pending"]
-                }
+                "status": {"type": "string", "enum": ["active", "inactive", "pending"]}
             },
-            required=["status"]
+            required=["status"],
         )
-        
+
         model_class = schema.create_class()
         instance = model_class(status="active")
-        assert hasattr(instance, 'status')
+        assert hasattr(instance, "status")
 
     def test_optional_fields(self):
         """Test model with optional fields"""
@@ -112,15 +103,15 @@ class TestJsonSchemaModel:
             type="object",
             properties={
                 "required_field": {"type": "string"},
-                "optional_field": {"type": "string"}
+                "optional_field": {"type": "string"},
             },
-            required=["required_field"]
+            required=["required_field"],
         )
-        
+
         model_class = schema.create_class()
         instance = model_class(required_field="test")
-        assert hasattr(instance, 'required_field')
-        assert hasattr(instance, 'optional_field')
+        assert hasattr(instance, "required_field")
+        assert hasattr(instance, "optional_field")
 
 
 class TestCollection:
@@ -146,7 +137,7 @@ class TestCollection:
 
     def test_col_path_generation(self):
         """Test collection path generation"""
-        with patch('os.makedirs'):
+        with patch("os.makedirs"):
             path = Collection.col_path()
             assert "data/collections/" in path
             assert Collection.col_id() in path
@@ -157,7 +148,7 @@ class TestCollection:
         assert "type" in openai_tool
         assert "function" in openai_tool
         assert openai_tool["type"] == "function"
-        
+
         anthropic_tool = Collection.tool_anthropic()
         assert "input_schema" in anthropic_tool
         assert "name" in anthropic_tool
@@ -172,11 +163,11 @@ class TestCollectionManager:
         """Create a temporary CollectionManager for testing"""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir) / "test_meta"
-            with patch.object(CollectionManager, '__init__', lambda self: None):
+            with patch.object(CollectionManager, "__init__", lambda self: None):
                 manager = CollectionManager()
                 manager.db_path = temp_path
                 manager.db_path.parent.mkdir(parents=True, exist_ok=True)
-                
+
                 # Mock the database
                 manager.db = MagicMock()
                 yield manager
@@ -204,27 +195,24 @@ class TestCollectionManager:
         schema = JsonSchemaModel(
             title="TestCollection",
             type="object",
-            properties={
-                "name": {"type": "string"},
-                "value": {"type": "integer"}
-            },
-            required=["name"]
+            properties={"name": {"type": "string"}, "value": {"type": "integer"}},
+            required=["name"],
         )
-        
+
         # Mock database operations
         temp_manager.db.get.return_value = None  # Collection doesn't exist
         temp_manager.db.__setitem__ = MagicMock()
-        
-        with patch.object(schema, 'create_class') as mock_create_class:
+
+        with patch.object(schema, "create_class") as mock_create_class:
             mock_class = MagicMock()
             mock_class.__name__ = "TestCollection"
             mock_class.col_id.return_value = "test_collection_id"
             mock_class.init = MagicMock()
             mock_class.model_json_schema.return_value = {"title": "TestCollection"}
             mock_create_class.return_value = mock_class
-            
+
             result = temp_manager.create_collection(data=schema)
-            
+
             assert result["name"] == "TestCollection"
             assert result["id"] == "test_collection_id"
             assert "schema" in result
@@ -235,17 +223,17 @@ class TestCollectionManager:
             title="ExistingCollection",
             type="object",
             properties={"name": {"type": "string"}},
-            required=["name"]
+            required=["name"],
         )
-        
-        with patch.object(schema, 'create_class') as mock_create_class:
+
+        with patch.object(schema, "create_class") as mock_create_class:
             mock_class = MagicMock()
             mock_class.col_id.return_value = "existing_id"
             mock_create_class.return_value = mock_class
-            
+
             # Mock that collection already exists
             temp_manager.db.get.return_value = b"existing_data"
-            
+
             with pytest.raises((HTTPException, QuipubaseException)):
                 temp_manager.create_collection(data=schema)
 
@@ -256,17 +244,17 @@ class TestCollectionManager:
             "title": "TestCollection",
             "type": "object",
             "properties": {"name": {"type": "string"}},
-            "required": ["name"]
+            "required": ["name"],
         }
-        
-        temp_manager.db.get.return_value = json.dumps(schema_data).encode('utf-8')
-        
-        with patch('quipubase.collections.service.JsonSchemaModel') as mock_schema:
+
+        temp_manager.db.get.return_value = json.dumps(schema_data).encode("utf-8")
+
+        with patch("quipubase.collections.service.JsonSchemaModel") as mock_schema:
             mock_instance = MagicMock()
             mock_class = MagicMock()
             mock_instance.create_class.return_value = mock_class
             mock_schema.return_value = mock_instance
-            
+
             result = temp_manager.retrieve_collection(collection_id)
             assert result == mock_class
 
@@ -274,7 +262,7 @@ class TestCollectionManager:
         """Test retrieving a non-existent collection"""
         collection_id = "nonexistent_collection"
         temp_manager.db.get.return_value = None
-        
+
         with pytest.raises(QuipubaseException):
             temp_manager.retrieve_collection(collection_id)
 
@@ -282,7 +270,7 @@ class TestCollectionManager:
         """Test retrieving a collection with invalid JSON data"""
         collection_id = "invalid_collection"
         temp_manager.db.get.return_value = b"invalid json data"
-        
+
         with pytest.raises(QuipubaseException) as exc_info:
             temp_manager.retrieve_collection(collection_id)
         assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -290,15 +278,15 @@ class TestCollectionManager:
     def test_get_collection_success(self, temp_manager):
         """Test successful get_collection operation"""
         collection_id = "test_collection"
-        
-        with patch.object(temp_manager, 'retrieve_collection') as mock_retrieve:
+
+        with patch.object(temp_manager, "retrieve_collection") as mock_retrieve:
             mock_class = MagicMock()
             mock_class.__name__ = "TestCollection"
             mock_class.model_json_schema.return_value = {"title": "TestCollection"}
             mock_retrieve.return_value = mock_class
-            
+
             result = temp_manager.get_collection(col_id=collection_id)
-            
+
             assert result["name"] == "TestCollection"
             assert result["id"] == collection_id
             assert "schema" in result
@@ -308,11 +296,11 @@ class TestCollectionManager:
         collection_id = "test_collection"
         temp_manager.db.get.return_value = b"some_data"
         temp_manager.db.__delitem__ = MagicMock()
-        
-        with patch('pathlib.Path.exists', return_value=True), \
-             patch('pathlib.Path.is_dir', return_value=True), \
-             patch('shutil.rmtree') as mock_rmtree:
-            
+
+        with patch("pathlib.Path.exists", return_value=True), patch(
+            "pathlib.Path.is_dir", return_value=True
+        ), patch("shutil.rmtree") as mock_rmtree:
+
             result = temp_manager.delete_collection(col_id=collection_id)
             assert result["code"] == 0
             mock_rmtree.assert_called_once()
@@ -321,7 +309,7 @@ class TestCollectionManager:
         """Test deleting a non-existent collection"""
         collection_id = "nonexistent_collection"
         temp_manager.db.get.return_value = None
-        
+
         result = temp_manager.delete_collection(col_id=collection_id)
         assert result["code"] == 500
 
@@ -329,19 +317,23 @@ class TestCollectionManager:
         """Test listing all collections"""
         # Mock database keys and values
         temp_manager.db.keys.return_value = ["col1", "col2"]
-        temp_manager.db.__getitem__ = MagicMock(side_effect=lambda key: json.dumps({
-            "title": f"Collection{key}",
-            "type": "object",
-            "properties": {"name": {"type": "string"}}
-        }).encode('utf-8'))
-        
-        with patch('quipubase.collections.service.JsonSchemaModel') as mock_schema:
+        temp_manager.db.__getitem__ = MagicMock(
+            side_effect=lambda key: json.dumps(
+                {
+                    "title": f"Collection{key}",
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}},
+                }
+            ).encode("utf-8")
+        )
+
+        with patch("quipubase.collections.service.JsonSchemaModel") as mock_schema:
             mock_instance = MagicMock()
             mock_class = MagicMock()
             mock_class.__name__ = "TestCollection"
             mock_instance.create_class.return_value = mock_class
             mock_schema.return_value = mock_instance
-            
+
             collections = list(temp_manager.list_collections())
             assert len(collections) == 2
             for col in collections:
@@ -355,15 +347,15 @@ class TestCollectionManager:
             "title": "TestCollection",
             "type": "object",
             "properties": {"name": {"type": "string"}},
-            "required": ["name"]
+            "required": ["name"],
         }
-        
-        temp_manager.db.get.return_value = json.dumps(schema_data).encode('utf-8')
-        
-        with patch('quipubase.collections.service.JsonSchemaModel') as mock_schema:
+
+        temp_manager.db.get.return_value = json.dumps(schema_data).encode("utf-8")
+
+        with patch("quipubase.collections.service.JsonSchemaModel") as mock_schema:
             mock_instance = MagicMock()
             mock_schema.return_value = mock_instance
-            
+
             result = temp_manager.get_json_schema(collection_id)
             assert result == mock_instance
 
@@ -371,11 +363,9 @@ class TestCollectionManager:
         """Test getting JSON schema for non-existent collection"""
         collection_id = "nonexistent_collection"
         temp_manager.db.get.return_value = None
-        
+
         with pytest.raises(QuipubaseException):
             temp_manager.get_json_schema(collection_id)
-
-
 
 
 class TestCollectionCRUD:
@@ -390,26 +380,28 @@ class TestCollectionCRUD:
             properties={
                 "name": {"type": "string"},
                 "value": {"type": "integer"},
-                "active": {"type": "boolean"}
+                "active": {"type": "boolean"},
             },
-            required=["name"]
+            required=["name"],
         )
         return schema.create_class()
 
     def test_collection_create_and_retrieve(self, test_collection_class):
         """Test creating and retrieving a collection record"""
-        with patch.object(test_collection_class, 'db') as mock_db:
+        with patch.object(test_collection_class, "db") as mock_db:
             mock_db_instance = MagicMock()
             mock_db.return_value = mock_db_instance
-            
+
             # Test create
             record = test_collection_class(name="Test Record", value=42, active=True)
-            test_data = b'{"id": "test-id", "name": "Test Record", "value": 42, "active": true}'
-            
+            test_data = (
+                b'{"id": "test-id", "name": "Test Record", "value": 42, "active": true}'
+            )
+
             # Mock the get method to satisfy the assertion in create()
             mock_db_instance.get.return_value = test_data
             mock_db_instance.put.return_value = None
-            
+
             try:
                 record.create()
                 # Verify put was called
@@ -417,87 +409,89 @@ class TestCollectionCRUD:
             except QuipubaseException:
                 # If it fails due to assertion mismatch, that's expected in testing
                 pass
-            
+
             # Test retrieve - mock successful retrieval
             mock_db_instance.get.return_value = test_data
             retrieved = test_collection_class.retrieve(id="test-id")
-            
+
             # Test that retrieved object exists and has an ID
             assert retrieved is not None
-            assert hasattr(retrieved, 'id')
+            assert hasattr(retrieved, "id")
 
     def test_collection_update(self, test_collection_class):
         """Test updating a collection record"""
-        with patch.object(test_collection_class, 'db') as mock_db:
+        with patch.object(test_collection_class, "db") as mock_db:
             mock_db_instance = MagicMock()
             mock_db.return_value = mock_db_instance
-            
+
             # Create initial record
             record = test_collection_class(name="Original", value=10, active=True)
-            test_data = record.model_dump_json().encode('utf-8')
-            
+            test_data = record.model_dump_json().encode("utf-8")
+
             # Mock get to return same data for both retrieve and assertion check
             mock_db_instance.get.side_effect = [test_data, test_data, test_data]
-            
+
             # Update record - this should work now
             try:
-                updated = test_collection_class.update(id=record.id, value=20, active=False)
+                updated = test_collection_class.update(
+                    id=record.id, value=20, active=False
+                )
                 # Verify update was called
                 assert updated is not None
             except QuipubaseException:
                 # If it fails due to mocking issues, just verify the method was called
                 pass
-            
+
             # Verify database operations were called
             mock_db_instance.get.assert_called()
             mock_db_instance.put.assert_called()
 
     def test_collection_delete(self, test_collection_class):
         """Test deleting a collection record"""
-        with patch.object(test_collection_class, 'db') as mock_db:
+        with patch.object(test_collection_class, "db") as mock_db:
             mock_db_instance = MagicMock()
             mock_db.return_value = mock_db_instance
-            
+
             record_id = "test_record_id"
             result = test_collection_class.delete(id=record_id)
-            
+
             mock_db_instance.delete.assert_called_once_with(record_id)
             assert result is True
 
     def test_collection_find(self, test_collection_class):
         """Test finding collection records"""
-        with patch.object(test_collection_class, 'db') as mock_db:
+        with patch.object(test_collection_class, "db") as mock_db:
             mock_db_instance = MagicMock()
             mock_db.return_value = mock_db_instance
-            
+
             # Mock iterator
             mock_iterator = MagicMock()
             mock_db_instance.iter.return_value = mock_iterator
-            
+
             # Mock records
             records = [
                 test_collection_class(name="Record 1", value=1, active=True),
-                test_collection_class(name="Record 2", value=2, active=False)
+                test_collection_class(name="Record 2", value=2, active=False),
             ]
-            
+
             mock_iterator.valid.side_effect = [True, True, False]
             mock_iterator.value.side_effect = [
-                records[0].model_dump_json().encode('utf-8'),
-                records[1].model_dump_json().encode('utf-8')
+                records[0].model_dump_json().encode("utf-8"),
+                records[1].model_dump_json().encode("utf-8"),
             ]
-            
+
             # Test find with filter
             results = list(test_collection_class.find(active=True, limit=10))
-            
+
             # Should find records matching the filter
             mock_iterator.seek_to_first.assert_called_once()
 
     def test_collection_record_not_found(self, test_collection_class):
         """Test retrieving non-existent record"""
-        with patch.object(test_collection_class, 'db') as mock_db:
+        with patch.object(test_collection_class, "db") as mock_db:
             mock_db_instance = MagicMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.get.return_value = None
-            
+
             with pytest.raises(QuipubaseException):
                 test_collection_class.retrieve(id="nonexistent_id")

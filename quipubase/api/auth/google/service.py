@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from httpx import AsyncClient
 
 from quipubase.lib.cache import db
+
 from .typedefs import GoogleAuthResponse, GoogleTokenResponse, GoogleUser
 
 load_dotenv()
@@ -133,7 +134,7 @@ class GoogleAuthService:
         expires_at = created_at + timedelta(seconds=token.expires_in)
 
         key = f"google:token:{token.access_token}"
-        payload:dict[str,object] = {
+        payload: dict[str, object] = {
             "access_token": token.access_token,
             "id_token": token.id_token,
             "expires_in": token.expires_in,

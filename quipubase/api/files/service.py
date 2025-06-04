@@ -1,19 +1,19 @@
-import time
-import os
-import typing as tp
 import base64  # Import base64 for binary content handling
-
-from fastapi import UploadFile
-from boto3 import client  # type:ignore
-from botocore.exceptions import ClientError  # Import for specific error handling
-from botocore.config import Config  # type:ignore
+import os
+import time
+import typing as tp
 from pathlib import Path
+
+from boto3 import client  # type:ignore
+from botocore.config import Config  # type:ignore
+from botocore.exceptions import \
+    ClientError  # Import for specific error handling
+from fastapi import UploadFile
 
 from quipubase.lib.utils import asyncify
 
-
 from .lib import load_document
-from .typedefs import ChunkFile, GetOrCreateFile, TreeNode, FileType
+from .typedefs import ChunkFile, FileType, GetOrCreateFile, TreeNode
 
 # Ensure these environment variables are set correctly for GCS S3 compatibility
 # e.g., S3_ENDPOINT_URL="https://storage.googleapis.com"

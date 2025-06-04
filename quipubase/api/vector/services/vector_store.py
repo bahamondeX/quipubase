@@ -18,21 +18,16 @@ Dependencies:
 - pydantic: For data validation and serialization
 """
 
-import typing as tp
 import time
+import typing as tp
 from dataclasses import dataclass
 from functools import cached_property
 
 import numpy as np
 from numpy.typing import NDArray
 
-from ..typedefs import (
-    DeleteResponse,
-    Embedding,
-    QueryResponse,
-    SemanticContent,
-    UpsertResponse,
-)
+from ..typedefs import (DeleteResponse, Embedding, QueryResponse,
+                        SemanticContent, UpsertResponse)
 from .embeddings import EmbeddingModel, EmbeddingService
 
 
@@ -87,13 +82,13 @@ class VectorStoreService(tp.Hashable):
             )
         for embedding in embeddings:
             embedding.create(namespace=self.namespace)
-        data=[
-                SemanticContent(
-                    id=embedding.id,
-                    content=embedding.content,
-                )
-                for embedding in embeddings
-            ]
+        data = [
+            SemanticContent(
+                id=embedding.id,
+                content=embedding.content,
+            )
+            for embedding in embeddings
+        ]
         return UpsertResponse(
             data=data,
             count=len(embeddings),
@@ -131,7 +126,9 @@ class VectorStoreService(tp.Hashable):
         start = time.perf_counter()
         for id in ids:
             Embedding.delete(id=id, namespace=self.namespace)
-        return DeleteResponse(data=ids, count=len(ids), ellapsed=time.perf_counter() - start)
+        return DeleteResponse(
+            data=ids, count=len(ids), ellapsed=time.perf_counter() - start
+        )
 
     def embed(self, text: tp.Union[str, list[str]]) -> NDArray[np.float32]:
         """
@@ -165,4 +162,6 @@ class VectorStoreService(tp.Hashable):
         start = time.perf_counter()
         corpus = list(Embedding.scan(namespace=self.namespace))
         matches = self.client.search(query_vector, corpus, top_k)
-        return QueryResponse(data=matches, count=len(matches), ellapsed=time.perf_counter() - start)
+        return QueryResponse(
+            data=matches, count=len(matches), ellapsed=time.perf_counter() - start
+        )

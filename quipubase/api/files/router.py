@@ -1,11 +1,12 @@
 import typing as tp
-from fastapi import APIRouter, File, Path, UploadFile, Query
+
+from fastapi import APIRouter, File, Path, Query, UploadFile
 from sse_starlette import EventSourceResponse
 
 from quipubase.lib.utils import handle
 
-from .typedefs import ChunkFile, GetOrCreateFile
 from .service import ContentService
+from .typedefs import ChunkFile, GetOrCreateFile
 
 cs = ContentService()
 

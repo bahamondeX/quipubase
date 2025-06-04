@@ -1,23 +1,29 @@
-import typing as tp
-import typing_extensions as tpe
-import httpx
-import os
 import json
-import uuid
+import os
 import time
+import typing as tp
+import uuid
 from abc import ABC, abstractmethod
-from pydantic import BaseModel, Field
-from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk, Choice, ChoiceDelta
-from openai._utils._proxy import LazyProxy
+
+import httpx
 from openai import AsyncOpenAI
+from openai._utils._proxy import LazyProxy
+from openai.types.chat.chat_completion_chunk import (ChatCompletionChunk,
+                                                     Choice, ChoiceDelta)
+from openai.types.chat.chat_completion_message_param import \
+    ChatCompletionMessageParam
+from openai.types.chat.chat_completion_tool_param import \
+    ChatCompletionToolParam
+from pydantic import BaseModel, Field
 
 T = tp.TypeVar("T")
 
+
 class Tool(BaseModel, LazyProxy[T], ABC):
     """Base Tool class for all vendors tool framework implementations"""
+
     model_config = {"extra": "allow"}
+
     @classmethod
     def tool_definition(cls) -> ChatCompletionToolParam:
         return ChatCompletionToolParam(
@@ -38,22 +44,29 @@ class Tool(BaseModel, LazyProxy[T], ABC):
         raise NotImplementedError
 
     def _parse_chunk(self, chunk: str):
-        return ChatCompletionChunk(id=str(uuid.uuid4()),choices=[Choice(delta=ChoiceDelta(content=chunk),index=0)],created=int(time.time()),model="",object="chat.completion.chunk")
+        return ChatCompletionChunk(
+            id=str(uuid.uuid4()),
+            choices=[Choice(delta=ChoiceDelta(content=chunk), index=0)],
+            created=int(time.time()),
+            model="",
+            object="chat.completion.chunk",
+        )
+
 
 class OpenAITool(Tool[AsyncOpenAI]):
     """
     Base class for tools that interact with OpenAI-compatible APIs.
     Subclasses should implement the `run` method to define the tool's functionality.
     """
+
     model_config = {"extra": "allow"}
+
     @abstractmethod
     def run(self) -> tp.AsyncGenerator[ChatCompletionChunk, tp.Any]:
         raise NotImplementedError
 
     def __load__(self):
         return AsyncOpenAI()
-
-    
 
 
 class Transcribe(Tool[AsyncOpenAI]):
@@ -78,6 +91,7 @@ class Transcribe(Tool[AsyncOpenAI]):
     }
     ```
     """
+
     model_config = {"extra": "allow"}
     url: str = Field(..., description="Url of the audio file to transcribe")
 
@@ -121,6 +135,7 @@ class GoogleSearch(OpenAITool):
     }
     ```
     """
+
     model_config = {"extra": "allow"}
     q: str = Field(..., description="The query to search for.")
 
@@ -184,6 +199,7 @@ class DeepResearch(OpenAITool):
     }
     ```
     """
+
     model_config = {"extra": "allow"}
     model: tp.Literal[
         "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-05-06"
@@ -254,8 +270,22 @@ class DeepResearch(OpenAITool):
                         string = ""
                 yield chunk
 
-    def _parse_chunk(self, chunk:str):
+    def _parse_chunk(self, chunk: str):
         if self.messages[-1]["role"] == "assistant":
-            return ChatCompletionChunk(id=str(uuid.uuid4()),choices=[Choice(delta=ChoiceDelta(content=chunk,role="assistant"),index=0)],created=int(time.time()),model=self.model,object="chat.completion.chunk")   
+            return ChatCompletionChunk(
+                id=str(uuid.uuid4()),
+                choices=[
+                    Choice(delta=ChoiceDelta(content=chunk, role="assistant"), index=0)
+                ],
+                created=int(time.time()),
+                model=self.model,
+                object="chat.completion.chunk",
+            )
         else:
-            return ChatCompletionChunk(id=str(uuid.uuid4()),choices=[Choice(delta=ChoiceDelta(content=chunk),index=0)],created=int(time.time()),model=self.model,object="chat.completion.chunk")
+            return ChatCompletionChunk(
+                id=str(uuid.uuid4()),
+                choices=[Choice(delta=ChoiceDelta(content=chunk), index=0)],
+                created=int(time.time()),
+                model=self.model,
+                object="chat.completion.chunk",
+            )

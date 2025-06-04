@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from .typedefs import (
-    CollectionMetadataType,
-    CollectionType,
-    DeleteCollectionReturnType
-)
-from .typedefs import JsonSchemaModel
-from quipubase.lib.utils import get_logger, encrypt
+from quipubase.lib.utils import encrypt, get_logger
+
 from .service import CollectionManager
+from .typedefs import (CollectionMetadataType, CollectionType,
+                       DeleteCollectionReturnType, JsonSchemaModel)
 
 logger = get_logger("[CollectionRouter]")
 manager = CollectionManager()
@@ -30,7 +27,7 @@ def route() -> APIRouter:
             return manager.get_collection(col_id=collection_id)
         except:
             return manager.create_collection(data=data)
-        
+
     @router.get("", response_model=list[CollectionMetadataType])
     def _():
         """List all collections"""

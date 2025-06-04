@@ -5,7 +5,6 @@ from functools import wraps
 import orjson
 from aioredis import Redis
 
-
 # Redis connection
 db: Redis = Redis.from_url(  # type: ignore
     "redis://:jR6%5BqQ5%5BfV5$yM2%5B@northamerica-northeast1-001.proxy.kinsta.app:30044",

@@ -6,17 +6,14 @@ import typing as tp
 from pathlib import Path
 from uuid import uuid4
 
-import typing_extensions as tpe
-from pydantic import BaseModel, Field
-
 import orjson
+import typing_extensions as tpe
 from pydantic import BaseModel, Field, create_model  # pylint: disable=W0611
 from rocksdict import Options  # pylint: disable=E0611
 from rocksdict import PlainTableFactoryOptions  # pylint: disable=E0611
 from rocksdict import Rdict, SliceTransform
 
 from quipubase.lib.utils import encrypt, get_logger, handle
-
 
 T = tp.TypeVar("T", bound="Collection")
 
@@ -33,7 +30,10 @@ MAPPING: dict[str, tp.Type[tp.Any]] = {
     "null": type(None),
 }
 
-QuipuActions: tpe.TypeAlias = tp.Literal["create", "read", "update", "delete", "query", "stop"]
+QuipuActions: tpe.TypeAlias = tp.Literal[
+    "create", "read", "update", "delete", "query", "stop"
+]
+
 
 class SubResponse(BaseModel, tp.Generic[T]):
     """Event model"""
@@ -47,6 +47,7 @@ class PubResponse(BaseModel, tp.Generic[T]):
     data: T | list[T]
     event: QuipuActions
 
+
 class JsonSchema(tpe.TypedDict, total=False):
     """JSON Schema representation"""
 
@@ -55,21 +56,29 @@ class JsonSchema(tpe.TypedDict, total=False):
     type: tpe.Required[str]
     properties: tpe.Required[tp.Dict[str, tp.Any]]
     required: tpe.NotRequired[list[str]]
-    
+
+
 # First define the JsonSchema as a regular Pydantic model (not TypedDict)
 class JsonSchemaModel(BaseModel):
     """JSON Schema representation"""
 
-    model_config = {"extra": "allow", "arbitrary_types_allowed": True, "cache_strings": True, "json_schema_extra": {"example": {
-        "title": "Task",
-        "type": "object",
-        "properties": {
-            "done": {"type": "boolean"},
-            "title": {"type": "string"},
-            "description": {"type": "string"}
+    model_config = {
+        "extra": "allow",
+        "arbitrary_types_allowed": True,
+        "cache_strings": True,
+        "json_schema_extra": {
+            "example": {
+                "title": "Task",
+                "type": "object",
+                "properties": {
+                    "done": {"type": "boolean"},
+                    "title": {"type": "string"},
+                    "description": {"type": "string"},
+                },
+                "required": ["title", "done"],
+            }
         },
-        "required": ["title", "done"]
-    }}}
+    }
     title: str = Field(...)
     type: str = Field(default="object")
     properties: tp.Dict[str, tp.Any] = Field(
@@ -78,46 +87,48 @@ class JsonSchemaModel(BaseModel):
     required: tp.Optional[list[str]] = Field(default=None)
     description: tp.Optional[str] = Field(default=None)
 
-    def _process_type(self, schema: tp.Dict[str, tp.Any] , depth: int = 0) -> tp.Any:
+    def _process_type(self, schema: tp.Dict[str, tp.Any], depth: int = 0) -> tp.Any:
         """Helper method to process types with recursion control"""
         if depth > 10:  # Max nesting depth
             return str
 
         if "enum" in schema:
             enum_values = schema.get("enum", [])
-            if enum_values and all(isinstance(v, type(enum_values[0])) for v in enum_values):
+            if enum_values and all(
+                isinstance(v, type(enum_values[0])) for v in enum_values
+            ):
                 return tp.Literal[tuple(enum_values)]  # type: ignore
-                
+
         schema_type = schema.get("type", "string")
-        
+
         if schema_type == "object" and "properties" in schema:
             # Create nested model
-            nested_attrs:tp.Dict[str, tp.Any]  = {}
+            nested_attrs: tp.Dict[str, tp.Any] = {}
             for key, prop_schema in schema["properties"].items():
                 is_required = "required" in schema and key in schema["required"]
                 field_type = self._process_type(prop_schema, depth + 1)
-                
+
                 if is_required:
                     nested_attrs[key] = (field_type, ...)
                 else:
                     nested_attrs[key] = (tp.Optional[field_type], None)
-                    
+
             model_name = f"Nested_{self.title}_{depth}_{abs(hash(str(schema)))}"
             return create_model(model_name, **nested_attrs)
-            
+
         elif schema_type == "array" and "items" in schema:
             item_type = self._process_type(schema["items"], depth + 1)
             return tp.List[item_type]
-            
+
         return MAPPING.get(schema_type, str)
 
     def create_class(self):
         """Create a class based on the schema with recursion control"""
-        attributes:tp.Dict[str, tp.Any]  = {}
+        attributes: tp.Dict[str, tp.Any] = {}
         for key, prop_schema in self.properties.items():
             is_required = self.required and key in self.required
             field_type = self._process_type(prop_schema)
-            
+
             if is_required:
                 attributes[key] = (field_type, ...)
             else:
@@ -146,7 +157,6 @@ class DeleteCollectionReturnType(tpe.TypedDict):
     code: int
 
 
-
 class QuipubaseRequest(BaseModel):
     """
     Quipubase Request
@@ -156,6 +166,7 @@ class QuipubaseRequest(BaseModel):
         id (Optional[str]): The unique identifier for the record. If None, a new record will be created.
         data (Optional[Dict[str, Any]]): Additional data required for the request. This can include fields to update or query parameters.
     """
+
     model_config = {
         "extra": "ignore",
         "arbitrary_types_allowed": True,
@@ -167,9 +178,9 @@ class QuipubaseRequest(BaseModel):
                     "title": "Example Record",
                     "description": "This is an example record for testing purposes.",
                     "done": False,
-                }
+                },
             }
-        }
+        },
     }
     event: QuipuActions = Field(default="query")
     id: tp.Optional[str] = Field(default=None)
@@ -229,10 +240,8 @@ class Collection(BaseModel):
     """
 
     id: tp.Optional[str] = Field(default_factory=lambda: str(uuid4()))
-    model_config = {
-        "extra": "allow",
-        "arbitrary_types_allowed": True
-    }
+    model_config = {"extra": "allow", "arbitrary_types_allowed": True}
+
     def __init__(self, **kwargs: tp.Any):
         super().__init__(**kwargs)
         if self.id is None:
@@ -317,6 +326,7 @@ class Collection(BaseModel):
             raise KeyError(f"Record {id} not found")
         json_data = orjson.loads(raw_data)  # pylint: disable=E1101
         return cls.model_validate(json_data)
+
     @handle
     def create(self) -> None:
         """Save/update the record in the database."""

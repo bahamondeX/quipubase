@@ -2,18 +2,12 @@ import time
 
 import numpy as np
 from fastapi import APIRouter
+
 from quipubase.lib.exceptions import QuipubaseException
+
 from .services import VectorStoreService
-from .typedefs import (
-    DeleteResponse,
-    DeleteText,
-    Embedding,
-    EmbedResponse,
-    EmbedText,
-    QueryResponse,
-    QueryText,
-    UpsertResponse,
-)
+from .typedefs import (DeleteResponse, DeleteText, Embedding, EmbedResponse,
+                       EmbedText, QueryResponse, QueryText, UpsertResponse)
 
 
 def route() -> APIRouter:
@@ -24,7 +18,7 @@ def route() -> APIRouter:
         return Embedding.retrieve(namespace=namespace, id=id)
 
     @app.post("/{namespace}", response_model=UpsertResponse)
-    def _(namespace:str, data: EmbedText):
+    def _(namespace: str, data: EmbedText):
         """
         Upsert texts into the vector store.
 
@@ -48,7 +42,7 @@ def route() -> APIRouter:
             raise QuipubaseException(status_code=500, detail=str(e))
 
     @app.put("/{namespace}", response_model=QueryResponse)
-    def _(namespace:str,data: QueryText):
+    def _(namespace: str, data: QueryText):
         """
         Query the vector store for similar texts.
 
@@ -102,7 +96,6 @@ def route() -> APIRouter:
             ],
             ellapsed=end - start,
             count=len(embeddings),
-            
         )
 
     return app

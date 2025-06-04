@@ -25,10 +25,11 @@ import numpy as np
 import orjson
 import typing_extensions as tpe
 from numpy.typing import NDArray
-from pydantic import BaseModel, WithJsonSchema, field_serializer, field_validator, computed_field
+from pydantic import (BaseModel, WithJsonSchema, computed_field,
+                      field_serializer, field_validator)
 from rocksdict import Rdict
 
-from quipubase.lib.utils import handle, encrypt
+from quipubase.lib.utils import encrypt, handle
 
 DIR: str = "./data"
 EMB: str = "/embeddings/"
@@ -47,6 +48,7 @@ class Embedding(BaseModel):
         content (str | list[str]): Text content or list of strings
         embedding (NDArray[np.float32]): Vector representation of the content
     """
+
     model_config = {
         "extra": "allow",
         "arbitrary_types_allowed": True,
@@ -73,7 +75,7 @@ class Embedding(BaseModel):
     @property
     def id(self):
         return encrypt(self.content)
-    
+
     @field_serializer("embedding")
     @classmethod
     def serialize_embedding(cls, v: tp.Any):
@@ -136,6 +138,7 @@ class Embedding(BaseModel):
                 iterable.next()
                 continue
 
+
 class QueryMatch(BaseModel):
     """
     Represents a similarity search result.
@@ -163,8 +166,9 @@ class EmbedText(BaseModel):
     Base input for embedding text content.
     Attributes:
         content (list[str]): List of text strings to be embedded
-        model (EmbeddingModel): Model type for generating embeddings    
+        model (EmbeddingModel): Model type for generating embeddings
     """
+
     model_config = {
         "extra": "allow",
         "arbitrary_types_allowed": True,
@@ -176,15 +180,23 @@ class EmbedText(BaseModel):
             "description": "Base model for text embeddings",
             "examples": [
                 {
-                    "content": ["I love Quipubase!", "I love myself!", "I love my family!", "I love my friends!", "I love my country!", "I love my job!"],
-                    "model": "poly-sage"
+                    "content": [
+                        "I love Quipubase!",
+                        "I love myself!",
+                        "I love my family!",
+                        "I love my friends!",
+                        "I love my country!",
+                        "I love my job!",
+                    ],
+                    "model": "poly-sage",
                 }
-            ]
-        }
+            ],
+        },
     }
-  
+
     content: list[str]
     model: EmbeddingModel
+
 
 class QueryText(EmbedText):
     model_config = {
@@ -195,9 +207,9 @@ class QueryText(EmbedText):
                     "content": ["I love you!"],
                     "model": "poly-sage",
                     "namespace": "quipubase",
-                    "top_k": 5
+                    "top_k": 5,
                 }
-            ]
+            ],
         }
     }
     top_k: int
@@ -245,7 +257,7 @@ class QueryResponse(tpe.TypedDict):
 
     data: list[QueryMatch]
     count: int
-    ellapsed:float
+    ellapsed: float
 
 
 class DeleteResponse(tpe.TypedDict):

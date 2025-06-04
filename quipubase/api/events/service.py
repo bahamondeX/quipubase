@@ -1,9 +1,9 @@
 import asyncio
 import typing as tp
 
-from ..collections.typedefs import Collection, SubResponse
-
 from quipubase.lib import db
+
+from ..collections.typedefs import Collection, SubResponse
 
 T = tp.TypeVar("T", bound=Collection)
 

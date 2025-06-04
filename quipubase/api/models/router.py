@@ -1,21 +1,52 @@
-from openai import AsyncOpenAI
-from fastapi import APIRouter
-from dotenv import load_dotenv
+import typing as tp
 
+from fastapi import APIRouter
 
 
 def route():
-	load_dotenv()
-	app = APIRouter(prefix="/models", tags=["models"])
+    app = APIRouter(prefix="/models", tags=["models"])
 
-	ai = AsyncOpenAI()
+    @app.get("/")
+    async def _() -> list[dict[str, tp.Any]]:
+        return [
+            {
+                "data": [
+                    {
+                        "id": "gemini-2.5-flash-preview-05-20",
+                        "created": 1693721698,
+                        "object": "model",
+                        "owned_by": "Google",
+                        "active": True,
+                        "context_window": 1000000,
+                        "public_apps": None,
+                        "max_completion_tokens": 65_536,
+                    },
+                    {
+                        "id": "gemini-2.5-pro-preview-05-06",
+                        "created": 1693721698,
+                        "object": "model",
+                        "owned_by": "Google",
+                        "active": True,
+                        "context_window": 1000000,
+                        "public_apps": None,
+                        "max_completion_tokens": 65_536,
+                    },
+                ],
+                "object": "list",
+            }
+        ]
 
-	@app.get("/")
-	async def _():
-		return await ai.models.list()
+    @app.get("/{model}")
+    async def _(model: str) -> dict[str, tp.Any]:
+        return {
+            "id": model,
+            "created": 1693721698,
+            "object": "model",
+            "owned_by": "Google",
+            "active": True,
+            "context_window": 1000000,
+            "public_apps": None,
+            "max_completion_tokens": 65_536,
+        }
 
-	@app.get("/{model}")
-	async def _(model: str):
-		return await ai.models.retrieve(model)
-
-	return app
+    return app
