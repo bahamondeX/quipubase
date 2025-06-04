@@ -7,7 +7,7 @@ def route():
     app = APIRouter(prefix="/models", tags=["models"])
 
     @app.get("")
-    async def _() -> list[dict[str, tp.Any]]:
+    def _() -> list[dict[str, tp.Any]]:
         return [
             {
                 "data": [
@@ -37,7 +37,7 @@ def route():
         ]
 
     @app.get("/{model}")
-    async def _(model: str) -> dict[str, tp.Any]:
+    def _(model: str) -> dict[str, tp.Any]:
         return {
             "id": model,
             "created": 1693721698,
