@@ -1,7 +1,7 @@
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from .service import TranscriptionService
@@ -20,8 +20,8 @@ def route():
     )
     async def _(
         file: UploadFile = File(..., description="The audio file object to transcribe"),
-        model: str = Form(
-            ...,
+        model: Literal["whisper-1"] = Form(
+            "whisper-1",
             description="ID of the model to use. Only 'whisper-1' is currently available.",
         ),
         language: Optional[str] = Form(
@@ -30,7 +30,7 @@ def route():
         prompt: Optional[str] = Form(
             None, description="An optional text to guide the model's style"
         ),
-        response_format: str = Form(
+        response_format: Literal["json", "text", "srt", "verbose_json", "vtt"] = Form(
             "json", description="The format of the transcript output"
         ),
         temperature: float = Form(
@@ -40,18 +40,6 @@ def route():
         """
         Transcribes audio into the input language using Google Cloud Speech-to-Text.
         """
-        # Validate model
-
-
-        # Validate response format
-        valid_formats = ["json", "text", "srt", "verbose_json", "vtt"]
-        if response_format not in valid_formats:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported response_format: {response_format}. "
-                f"Supported formats are {valid_formats}.",
-            )
-
         try:
             # Read the uploaded file content
             audio_content = await file.read()
@@ -71,41 +59,33 @@ def route():
                 params, audio_content
             )
 
-            # Return appropriate response based on format
+            # Return appropriate response based on format - OpenAI compatible
             if response_format == "text":
                 if isinstance(result, str):
                     return PlainTextResponse(content=result, media_type="text/plain")
+                elif hasattr(result, "text"):
+                    return PlainTextResponse(content=result.text, media_type="text/plain")
                 else:
-                    return JSONResponse(
-                        content=(
-                            result.model_dump()
-                            if hasattr(result, "model_dump")
-                            else {"text": result}
-                        )
-                    )
+                    return PlainTextResponse(content=str(result), media_type="text/plain")
             elif response_format == "srt":
                 if isinstance(result, str):
                     return PlainTextResponse(
                         content=result, media_type="application/x-subrip"
                     )
                 else:
-                    return Response(content=result, media_type="application/x-subrip")
+                    return PlainTextResponse(content=str(result), media_type="application/x-subrip")
             elif response_format == "vtt":
                 if isinstance(result, str):
                     return PlainTextResponse(content=result, media_type="text/vtt")
                 else:
-                    return Response(content=result, media_type="text/vtt")
-            else:  # json or verbose_json
+                    return PlainTextResponse(content=str(result), media_type="text/vtt")
+            else:  # json or verbose_json - return JSON response
                 if isinstance(result, str):
-                    return PlainTextResponse(content=result, media_type="text/plain")
+                    return JSONResponse(content={"text": result})
+                elif hasattr(result, "model_dump"):
+                    return JSONResponse(content=result.model_dump())
                 else:
-                    return JSONResponse(
-                        content=(
-                            result.model_dump()
-                            if hasattr(result, "model_dump")
-                            else {"text": result}
-                        )
-                    )
+                    return JSONResponse(content={"text": str(result)})
 
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
