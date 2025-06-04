@@ -112,11 +112,3 @@ For detailed examples and more in-depth usage, please refer to the official Quip
 ## Contributing
 
 We welcome contributions to Quipubase! Please refer to our contribution guidelines for how to get involved.
-
----
-
-[Script]
-
-Welcome to my channel, today I want to introduce this brand new application called Nuxt-Dev that is an Integrated Development Environment tailored to AI powered development of NuxtJS applications, it's similar to Vercel's v0 but specially made for VueJS framework, it has a browser Editor with a filesystem, live preview with hot module replacement of Vue SFC, a OS terminal for dependency management, the option to download the project as a Zip file and AI first approach with autocompletion and code generation.
-You can simply tell the AI agent to generate the code based on your prompt and it will generate the files needed to accomplish the task for example we can tell Nuxt-Dev to create a Dropzone component with image preview, a Shopping cart and so on.
-I hope you enjoy vibe-coding with this brand new tool and I'll be awaiting your kind feedback, see you later!
