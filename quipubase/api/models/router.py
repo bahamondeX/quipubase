@@ -7,9 +7,8 @@ def route():
     app = APIRouter(prefix="/models", tags=["models"])
 
     @app.get("")
-    def _() -> list[dict[str, tp.Any]]:
-        return [
-            {
+    def _() -> dict[str, tp.Any]:
+        return {
                 "data": [
                     {
                         "id": "gemini-2.5-flash-preview-05-20",
@@ -34,7 +33,6 @@ def route():
                 ],
                 "object": "list",
             }
-        ]
 
     @app.get("/{model}")
     def _(model: str) -> dict[str, tp.Any]:
