@@ -31,7 +31,7 @@ def route():
             None, description="An optional text to guide the model's style"
         ),
         response_format: str = Form(
-            "text", description="The format of the transcript output"
+            "json", description="The format of the transcript output"
         ),
         temperature: float = Form(
             0, ge=0, le=1, description="The sampling temperature"
@@ -41,11 +41,7 @@ def route():
         Transcribes audio into the input language using Google Cloud Speech-to-Text.
         """
         # Validate model
-        if model != "whisper-1":
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported model: {model}. Only 'whisper-1' is currently available.",
-            )
+
 
         # Validate response format
         valid_formats = ["json", "text", "srt", "verbose_json", "vtt"]

@@ -268,9 +268,11 @@ class DeepResearch(OpenAITool):
                             if not data:
                                 continue
                             else:
-                                yield self._parse_chunk(data)
+                                string+=data
                         self.messages.append({"role": "system", "content": string})
                         string = ""
+                        async for inner_inner_chunk in self.run():
+                            yield inner_inner_chunk
                 yield chunk
 
     def _parse_chunk(self, chunk: str):
