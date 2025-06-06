@@ -9,7 +9,7 @@ class TranscriptionService:
 
     def __init__(self):
         self.stt_service = GoogleSTTService()
-
+    
     async def create_transcription(
         self, params: TranscriptionCreateParams, audio_content: bytes
     ) -> Union[TranscriptionResponse, VerboseTranscriptionResponse, str]:

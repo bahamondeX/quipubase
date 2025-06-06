@@ -137,7 +137,7 @@ class GoogleTTSService:
         )
 
         # Await the asynchronous call to the Google Cloud TTS API
-        response = await self.client.synthesize_speech( # type: ignore
+        response = await self.client.synthesize_speech(  # type: ignore
             input=synthesis_input, voice=voice_params, audio_config=audio_config
         )
 

@@ -12,9 +12,10 @@ from openai.types.chat.chat_completion_chunk import (ChatCompletionChunk,
                                                      Choice, ChoiceDelta)
 from openai.types.chat.chat_completion_message_param import \
     ChatCompletionMessageParam
+from openai.types.chat.chat_completion_tool_choice_option_param import \
+    ChatCompletionToolChoiceOptionParam
 from openai.types.chat.chat_completion_tool_param import \
     ChatCompletionToolParam
-from openai.types.chat.chat_completion_tool_choice_option_param import ChatCompletionToolChoiceOptionParam
 from pydantic import BaseModel, Field
 
 T = tp.TypeVar("T")
@@ -216,8 +217,9 @@ class DeepResearch(OpenAITool):
         description="The tools that the model can utilize during the research.",
     )
     max_tokens: int = Field(default=65_536)
-    tool_choice:ChatCompletionToolChoiceOptionParam = Field(default="auto")
-    stream:bool = Field(default=True)
+    tool_choice: ChatCompletionToolChoiceOptionParam = Field(default="auto")
+    stream: bool = Field(default=True)
+
     async def run(self) -> tp.AsyncGenerator[ChatCompletionChunk, tp.Any]:
         client = self.__load__()
         response = await client.chat.completions.create(
@@ -226,7 +228,7 @@ class DeepResearch(OpenAITool):
             tools=self.tools,
             max_completion_tokens=self.max_tokens,
             stream=True,
-            tool_choice=self.tool_choice
+            tool_choice=self.tool_choice,
         )
         string = ""
         async for chunk in response:
@@ -268,7 +270,7 @@ class DeepResearch(OpenAITool):
                             if not data:
                                 continue
                             else:
-                                string+=data
+                                string += data
                         self.messages.append({"role": "system", "content": string})
                         string = ""
                         async for inner_inner_chunk in self.run():

@@ -209,7 +209,6 @@ class CollectionManager:
                 return self.get_collection(col_id=col_id)
 
             # Initialize collection
-            
 
             # Store in database
             try:

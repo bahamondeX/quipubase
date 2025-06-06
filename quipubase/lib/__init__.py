@@ -1,6 +1,8 @@
-from .cache import cache, db
+from .cache import cache, load_cache
 from .exceptions import QuipubaseException
 from .utils import asyncify, get_key, get_logger, handle, is_base64
+
+db = load_cache()
 
 __all__ = [
     "db",

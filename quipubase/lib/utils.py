@@ -13,6 +13,7 @@ from typing import Any, Callable, Coroutine, Type, TypeVar, cast
 
 import base64c as base64  # type: ignore
 import typing_extensions as tpe
+from cachetools import TTLCache, cached
 from typing_extensions import ParamSpec
 
 from .exceptions import QuipubaseException
@@ -36,6 +37,16 @@ class ExceptionObject(tpe.TypedDict):
 def encrypt(s: str):
     return sha256(s.encode()).hexdigest()
 
+def ttl_cache(
+    func: Callable[P, T], *, maxsize: int = 128, ttl: int = 3600 * 24 * 365
+) -> Callable[P, T]:
+    @wraps(func)
+    @cached(cache=TTLCache[str, T](maxsize, ttl))
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        wrapper.__name__ = func.__name__
+        return func(*args, **kwargs)
+
+    return wrapper
 
 def get_key(*, object: dict[str, Any], key: str) -> None:
     try:

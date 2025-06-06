@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from .service import TranscriptionService
-from .typedefs import (GoogleSTTService, TranscriptionCreateParams,
+from .typedefs import (TranscriptionCreateParams,
                        TranscriptionResponse, VerboseTranscriptionResponse)
 
 # Create an instance of the transcription service
@@ -64,16 +64,22 @@ def route():
                 if isinstance(result, str):
                     return PlainTextResponse(content=result, media_type="text/plain")
                 elif hasattr(result, "text"):
-                    return PlainTextResponse(content=result.text, media_type="text/plain")
+                    return PlainTextResponse(
+                        content=result.text, media_type="text/plain"
+                    )
                 else:
-                    return PlainTextResponse(content=str(result), media_type="text/plain")
+                    return PlainTextResponse(
+                        content=str(result), media_type="text/plain"
+                    )
             elif response_format == "srt":
                 if isinstance(result, str):
                     return PlainTextResponse(
                         content=result, media_type="application/x-subrip"
                     )
                 else:
-                    return PlainTextResponse(content=str(result), media_type="application/x-subrip")
+                    return PlainTextResponse(
+                        content=str(result), media_type="application/x-subrip"
+                    )
             elif response_format == "vtt":
                 if isinstance(result, str):
                     return PlainTextResponse(content=result, media_type="text/vtt")

@@ -1,25 +1,31 @@
 import asyncio
+import os
 import typing as tp
 from functools import wraps
 
 import orjson
 from aioredis import Redis
 
-# Redis connection
-db: Redis = Redis.from_url(  # type: ignore
-    "redis://:jR6%5BqQ5%5BfV5$yM2%5B@northamerica-northeast1-001.proxy.kinsta.app:30044",
-    max_connections=250,
-    encoding="utf-8",
-    decode_responses=False,  # for orjson
-)
+from .utils import ttl_cache
+
 
 # Caching decorator
 T = tp.TypeVar("T")
 P = tp.ParamSpec("P")
 
+@ttl_cache
+def load_cache():
+    db: Redis = Redis.from_url(  # type: ignore
+        os.environ["REDIS_URL"],
+        max_connections=250,
+        encoding="utf-8",
+        decode_responses=False,  # for orjson
+    )
+    return db
 
 def cache(ttl: int = 60 * 60 * 24 * 7):
     def decorator(func: tp.Callable[P, tp.Awaitable[T] | T]):
+        db = load_cache()
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             key = f"{func.__module__}.{func.__qualname__}:{orjson.dumps({'args': args, 'kwargs': kwargs}).hex()}"
@@ -34,7 +40,5 @@ def cache(ttl: int = 60 * 60 * 24 * 7):
             )
             await db.set(key, orjson.dumps(result), ex=ttl)  # type: ignore
             return result  # type: ignore
-
         return wrapper
-
     return decorator
