@@ -10,7 +10,9 @@ import typing_extensions as tpe
 from dotenv import load_dotenv
 from httpx import AsyncClient
 
-from quipubase.lib.cache import db
+from quipubase.lib.cache import load_cache
+
+db = load_cache()
 
 from .typedefs import GoogleAuthResponse, GoogleTokenResponse, GoogleUser
 

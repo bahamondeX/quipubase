@@ -11,7 +11,9 @@ from dotenv import load_dotenv
 from httpx import AsyncClient, Response
 from openai._utils._proxy import LazyProxy
 
-from quipubase.lib.cache import db
+from quipubase.lib.cache import load_cache
+
+db = load_cache()
 
 from .typedefs import GithubAuthResponse, GitHubTokenResponse, GitHubUser
 
