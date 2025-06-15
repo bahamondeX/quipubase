@@ -1,10 +1,7 @@
-from calendar import c
 import typing as tp
 from fastapi import APIRouter, UploadFile, Form, HTTPException, status
 from groq import AsyncGroq
 from typing import Optional
-
-from sympy import content
 
 def route():
 	# Initialize Google Cloud Speech-to-Text client
