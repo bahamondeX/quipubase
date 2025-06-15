@@ -1,10 +1,10 @@
-import os
-import io
-import os
+from calendar import c
 import typing as tp
-from fastapi import FastAPI, APIRouter, UploadFile, Form, HTTPException, status
+from fastapi import APIRouter, UploadFile, Form, HTTPException, status
 from groq import AsyncGroq
 from typing import Optional
+
+from sympy import content
 
 def route():
 	# Initialize Google Cloud Speech-to-Text client
@@ -56,17 +56,33 @@ def route():
 		assert file.content_type.startswith("audio/"), "File must be an audio type"
 		assert file.filename, "File must have a filename"
 		audio_content = await file.read()
-
+		if not audio_content:
+			raise HTTPException(
+				status_code=status.HTTP_400_BAD_REQUEST,
+				detail="Audio file is empty or not readable."
+			)
+		content_type = file.content_type.split("/")[1].split(";")[0]  # Extract the main type (e.g., "mp3", "wav", etc.)
+		if content_type not in ["mp3", "wav", "flac", "aac", "opus","pcm","ogg","mpeg"]:
+			raise HTTPException(
+				status_code=status.HTTP_400_BAD_REQUEST,
+				detail=f"Unsupported audio format: {content_type}. Supported formats are mp3, wav, flac, aac, opus."
+			)
 		# Convert language to BCP-47 format if provided
-		if language:
-			language = language.replace("-", "_")  # Convert to BCP-47 format
-			language_code = f"{language}-US"  # Default to US region, can be adjusted
+		if not language:
+			language_code = "en"
 		else:
-			language_code = "en-US"  # Default to English US if no language provided
+			language_code = language.lower()
+		assert len(language_code) == 2, "Language code must be in ISO-639-1 format (e.g., 'en', 'es', 'fr')."
+		# Set the response format
+		if response_format not in ["text", "json", "verbose_json"]:
+			raise HTTPException(
+				status_code=status.HTTP_400_BAD_REQUEST,
+				detail=f"Unsupported response format: {response_format}. Supported formats are text, json, verbose_json."
+			)
 		try:
 			# Call the Google Cloud Speech-to-Text API
 			response = await speech_client.audio.transcriptions.create(
-				file=audio_content,
+				file=(file.filename,audio_content,content_type),
 				model=model,
 				language=language_code,
 				response_format=response_format,
