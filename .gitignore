@@ -3,9 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-./data/blobs/*
-./data/collections/*
-./data/embeddings/*
+data/blobs/*
+data/collections/*
+data/embeddings/*
+data/meta/*
 # Distribution / packaging
 .claude
 .Python

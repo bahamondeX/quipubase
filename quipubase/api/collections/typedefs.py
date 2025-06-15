@@ -184,7 +184,7 @@ class QuipubaseRequest(BaseModel):
     }
     event: QuipuActions = Field(default="query")
     id: tp.Optional[str] = Field(default=None)
-    data: tp.Optional[tp.Dict[str, tp.Any]] = Field(default=None)
+    data: tp.Optional[tp.Dict[str, tp.Any]] = Field(default=None,description="The `data` property of the request body is an object that is of the type documented on the `collection_id`")
 
 
 class Collection(BaseModel):

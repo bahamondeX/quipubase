@@ -1,4 +1,4 @@
-import base64
+import base64c as base64
 import re
 import typing as tp
 from dataclasses import dataclass

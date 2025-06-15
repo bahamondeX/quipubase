@@ -97,6 +97,11 @@ def get_logger(
     :param format_string: Format string for log messages.
     :return: Configured logger.
     """
+    try:
+        from loguru import logger
+        return logger
+    except ImportError as e:
+        pass
     if name is None:
         name = "🚀 Trace >>"
     logger_ = logging.getLogger(name)

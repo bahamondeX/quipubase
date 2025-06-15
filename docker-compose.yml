@@ -1,0 +1,35 @@
+version: '3.8' # Valid version for Docker Compose
+
+services:
+  quipubase:
+    container_name: quipubase # Good for easy identification
+    build:
+      context: . # Assumes Dockerfile is in the current directory
+      dockerfile: Dockerfile # Specifies the Dockerfile to use for building the image
+    volumes:
+      - .:/app # Mounts the current directory into the /app directory in the container.
+               # This is useful for development as code changes are reflected without rebuilding.
+    ports:
+      - "8080:8080" # Maps container port 8080 to host port 8080.
+                    # This allows direct access to the 'quipubase' service from the host,
+                    # which is useful for testing, but not strictly necessary if only Nginx
+                    # is meant to access it.
+    networks:
+      - quipubase-network # Connects 'quipubase' to the shared network.
+    environment:
+      env-file: .env # This line is incorrect. It should be `env_file: .env`.
+                     # Also, ensure your .env file is structured correctly (KEY=VALUE).
+
+  proxy:
+    image: nginx:latest # Uses the latest Nginx image from Docker Hub.
+    container_name: proxy # Good for easy identification
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf # Mounts your local nginx.conf into the container.
+                                          # This is crucial for Nginx to use your custom configuration.
+    ports:
+      - "80:80" # Maps host port 80 to container port 80, making Nginx accessible on standard HTTP.
+    networks:
+      - quipubase-network # Connects 'proxy' to the shared network.
+networks:
+  quipubase-network:
+    driver: bridge # Defines a custom bridge network for internal communication.

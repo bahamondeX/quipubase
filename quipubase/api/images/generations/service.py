@@ -1,4 +1,4 @@
-import base64
+import base64c as base64
 import os
 from hashlib import md5
 from typing import Generator, Literal, Optional

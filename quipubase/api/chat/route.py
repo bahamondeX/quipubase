@@ -1,5 +1,3 @@
-import json
-
 from fastapi import APIRouter, Body
 from sse_starlette import EventSourceResponse
 

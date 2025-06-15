@@ -16,11 +16,11 @@ logger = get_logger("[PubSubRouter]")
 
 
 def route() -> APIRouter:
-    router = APIRouter(tags=["events"])
+    router = APIRouter(tags=["collections"],prefix="/collections")
     col_manager = CollectionManager()
 
     @handle
-    @router.post("/events/{collection_id}", response_model=PubResponse)
+    @router.post("/objects/{collection_id}", response_model=PubResponse)
     async def _(collection_id: str, req: QuipubaseRequest):
         klass = col_manager.retrieve_collection(collection_id)
 
@@ -60,7 +60,7 @@ def route() -> APIRouter:
         assert item is not None
         return PubResponse[klass](collection=collection_id, data=item, event=req.event)
 
-    @router.get("/events/{collection_id}", response_class=EventSourceResponse)
+    @router.get("/objects/{collection_id}", response_class=EventSourceResponse)
     async def _(request: Request, collection_id: str):
         """Subscribe to events for a specific collection"""
         try:

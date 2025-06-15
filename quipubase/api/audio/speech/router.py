@@ -55,10 +55,7 @@ def route():
             async def audio_streamer() -> AsyncGenerator[bytes, None]:
                 # Use BytesIO to treat the bytes as a file-like object for chunking
                 audio_io = BytesIO(audio_content_bytes)
-                while True:
-                    chunk = audio_io.read(AUDIO_CHUNK_SIZE)
-                    if not chunk:
-                        break
+                while chunk := audio_io.read(AUDIO_CHUNK_SIZE):
                     yield chunk
                 # Close the BytesIO object (optional, but good practice)
                 audio_io.close()

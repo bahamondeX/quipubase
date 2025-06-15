@@ -1,4 +1,4 @@
-import base64  # Import base64 for binary content handling
+import base64c as base64  # import base64c as base64 for binary content handling
 import os
 import time
 import typing as tp
