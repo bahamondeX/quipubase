@@ -12,7 +12,7 @@ from .chat import route as chat_router
 from .collections import (Collection, CollectionType, JsonSchemaModel,
                           QuipubaseRequest)
 from .collections import route as data_router
-from .collections.events import route as pubsub_router
+from .collections.objects import route as pubsub_router
 from .files import route as content_router
 from .images import route as images_router
 from .models import route as models_router

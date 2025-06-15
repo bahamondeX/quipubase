@@ -204,9 +204,9 @@ class DeepResearch(OpenAITool):
 
     model_config = {"extra": "allow"}
     model: tp.Literal[
-        "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-05-06"
+        "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-06-05"
     ] = Field(
-        default="gemini-2.5-pro-preview-05-06",
+        default="gemini-2.5-pro-preview-06-05",
         description="The model to use for the chat completion.",
     )
     messages: tp.List[ChatCompletionMessageParam] = Field(

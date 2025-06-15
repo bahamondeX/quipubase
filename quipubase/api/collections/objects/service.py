@@ -3,7 +3,7 @@ import typing as tp
 
 from quipubase.lib import db
 
-from ..collections.typedefs import Collection, SubResponse
+from ..typedefs import Collection, SubResponse
 
 T = tp.TypeVar("T", bound=Collection)
 
