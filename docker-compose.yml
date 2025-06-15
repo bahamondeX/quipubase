@@ -10,7 +10,7 @@ services:
       - .:/app # Mounts the current directory into the /app directory in the container.
                # This is useful for development as code changes are reflected without rebuilding.
     ports:
-      - "8880:8880" # Maps container port 8080 to host port 8080.
+      - "8080:8080" # Maps container port 8080 to host port 8080.
                     # This allows direct access to the 'quipubase' service from the host,
                     # which is useful for testing, but not strictly necessary if only Nginx
                     # is meant to access it.
