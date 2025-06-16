@@ -21,7 +21,7 @@ def route():
                     "max_completion_tokens": 65_536,
                 },
                 {
-                    "id": "gemini-2.5-pro-preview-05-06",
+                    "id": "gemini-2.5-pro-preview-06-05",
                     "created": 1693721698,
                     "object": "model",
                     "owned_by": "Google",
