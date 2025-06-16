@@ -1,12 +1,12 @@
 import os
 import sys
-from typing import Dict, Literal, Optional
+from typing import Dict, Literal
+from openai.types.audio import SpeechCreateParams
 
 from dotenv import load_dotenv
 # Import the async client specifically
 from google.cloud import \
     texttospeech_v1 as texttospeech  # Using v1 for async client
-from pydantic import BaseModel, Field
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,54 +21,6 @@ if not PROJECT_ID:
 
 # Assuming SpeechModel is defined as in your previous request
 SpeechModel = Literal["tts-1", "tts-1-hd"]
-
-
-class SpeechCreateParams(BaseModel):
-    """
-    Parameters for generating audio using a Text-to-Speech service,
-    mimicking the OpenAI Speech API's create endpoint.
-    """
-
-    input: str = Field(
-        ...,
-        description="The text to generate audio for. The maximum length is 4096 characters.",
-    )
-    model: SpeechModel = Field(
-        ..., description="One of the available TTS models: `tts-1` or `tts-1-hd`."
-    )
-    voice: Literal[
-        "alloy",
-        "echo",
-        "fable",
-        "onyx",
-        "nova",
-        "shimmer",
-        "es-es-standard-a",
-        "fr-fr-wavenet-b",
-        "de-de-neural2-c",
-        "ja-jp-neural2-a",
-    ] = Field(
-        ...,
-        description=(
-            "The voice to use when generating the audio. Supported voices are "
-            "standard OpenAI voices and new multilingual mappings."
-        ),
-    )
-    response_format: Optional[Literal["mp3", "opus", "aac", "flac", "wav", "pcm"]] = (
-        Field(
-            None,
-            description=(
-                "The format to audio in. Supported formats are `mp3`, `opus`, `aac`, `flac`, `wav`, and `pcm`."
-            ),
-        )
-    )
-    speed: Optional[float] = Field(
-        None,
-        ge=0.25,
-        le=4.0,
-        description="The speed of the generated audio. Select a value from `0.25` to `4.0`. `1.0` is the default.",
-    )
-
 
 class GoogleTTSService:
     """
@@ -112,12 +64,12 @@ class GoogleTTSService:
         Returns:
             The generated audio content as bytes.
         """
-        synthesis_input = texttospeech.SynthesisInput(text=params.input)
+        synthesis_input = texttospeech.SynthesisInput(text=params['input'])
 
-        google_voice_config = self._voice_mapping.get(params.voice)
+        google_voice_config = self._voice_mapping.get(params['voice'])
         if not google_voice_config:
             raise ValueError(
-                f"Unsupported voice: '{params.voice}'. No Google Cloud mapping found."
+                f"Unsupported voice: '{params['voice']}'. No Google Cloud mapping found."
             )
 
         voice_params = texttospeech.VoiceSelectionParams(
@@ -126,14 +78,11 @@ class GoogleTTSService:
         )
 
         audio_encoding = self._audio_encoding_mapping.get(
-            params.response_format or "mp3"
+            params.get('response_format') or 'mp3'  # Default to mp3 if not specified
         )  # Default to mp3
-        if not audio_encoding:
-            raise ValueError(f"Unsupported response_format: '{params.response_format}'")
-
         audio_config = texttospeech.AudioConfig(
             audio_encoding=audio_encoding,
-            speaking_rate=params.speed or 1.0,
+            speaking_rate=params.get('speed') or 1.0,
         )
 
         # Await the asynchronous call to the Google Cloud TTS API
