@@ -11,7 +11,7 @@ def route():
         return {
             "data": [
                 {
-                    "id": "gemini-2.5-flash-preview-05-20",
+                    "id": id,
                     "created": 1693721698,
                     "object": "model",
                     "owned_by": "Google",
@@ -19,18 +19,9 @@ def route():
                     "context_window": 1000000,
                     "public_apps": None,
                     "max_completion_tokens": 65_536,
-                },
-                {
-                    "id": "gemini-2.5-pro-preview-06-05",
-                    "created": 1693721698,
-                    "object": "model",
-                    "owned_by": "Google",
-                    "active": True,
-                    "context_window": 1000000,
-                    "public_apps": None,
-                    "max_completion_tokens": 65_536,
-                },
-            ],
+                } for id in [
+		"gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-06-05", "gemini-2.5-pro-preview-05-06"
+	]],
             "object": "list",
         }
 
