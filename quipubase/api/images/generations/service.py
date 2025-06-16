@@ -41,7 +41,6 @@ class ImageGenerationService:
 			prompt=request["prompt"],
 			config={
 				"number_of_images": request.get("n") or 1,
-				"enhance_prompt": True,
 				"output_mime_type": "image/png",
 				"person_generation": types.PersonGeneration.ALLOW_ADULT,
 				"aspect_ratio": "16:9"
