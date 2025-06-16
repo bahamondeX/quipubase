@@ -11,13 +11,13 @@ from .typedefs import (DeleteResponse, DeleteText, Embedding, EmbedResponse,
 
 
 def route() -> APIRouter:
-    app = APIRouter(tags=["vector"], prefix="/vector")
+    app = APIRouter(tags=["vector"])
 
-    @app.get("/{namespace}/{id}")
+    @app.get("/vector/{namespace}/{id}")
     def _(namespace: str, id: str):
         return Embedding.retrieve(namespace=namespace, id=id)
 
-    @app.post("/{namespace}", response_model=UpsertResponse)
+    @app.post("/vector/{namespace}", response_model=UpsertResponse)
     def _(namespace: str, data: EmbedText):
         """
         Upsert texts into the vector store.
@@ -33,8 +33,8 @@ def route() -> APIRouter:
         try:
             store = VectorStoreService(namespace=namespace, model=data.model)
             embeddings = [
-                Embedding(content=text, embedding=store.embed(text))
-                for text in data.content
+                Embedding(content=data.input, embedding=store.embed(data.input))
+                
             ]
             response = store.upsert(embeddings)
             return response
@@ -57,11 +57,11 @@ def route() -> APIRouter:
         """
         try:
             store = VectorStoreService(namespace=namespace, model=data.model)
-            return store.query(store.embed(data.content).tolist(), data.top_k)
+            return store.query(store.embed(data.input).tolist(), data.top_k)
         except Exception as e:
             raise QuipubaseException(status_code=500, detail=str(e))
 
-    @app.delete("/{namespace}", response_model=DeleteResponse)
+    @app.delete("/vector/{namespace}", response_model=DeleteResponse)
     def _(
         namespace: str,
         data: DeleteText,
@@ -83,16 +83,16 @@ def route() -> APIRouter:
         except Exception as e:
             raise QuipubaseException(status_code=500, detail=str(e))
 
-    @app.post("", response_model=EmbedResponse)
+    @app.post("/embeddings", response_model=EmbedResponse)
     def _(data: EmbedText):
         start = time.perf_counter()
         vs = VectorStoreService(namespace="quipubase", model=data.model)
-        embeddings: list[list[float]] = vs.embed(data.content).tolist()
+        embeddings: list[list[float]] = vs.embed(data.input).tolist()
         end = time.perf_counter()
         return EmbedResponse(
             data=[
                 Embedding(content=c, embedding=np.array(e).astype(np.float32))
-                for c, e in zip(data.content, embeddings)
+                for c, e in zip(data.input, embeddings)
             ],
             ellapsed=end - start,
             count=len(embeddings),

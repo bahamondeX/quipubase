@@ -50,7 +50,7 @@ class VectorStoreService(tp.Hashable):
     model: EmbeddingModel
 
     @cached_property
-    def client(self) -> EmbeddingService:
+    def embedding_service(self) -> EmbeddingService:
         """
         Get the cached embedding service instance.
 
@@ -142,7 +142,7 @@ class VectorStoreService(tp.Hashable):
         """
         if isinstance(text, str):
             text = [text]
-        return self.client.encode(text)
+        return self.embedding_service.encode(text)
 
     def query(self, query_vector: list[float], top_k: int = 3):
         """
@@ -161,7 +161,7 @@ class VectorStoreService(tp.Hashable):
         """
         start = time.perf_counter()
         corpus = list(Embedding.scan(namespace=self.namespace))
-        matches = self.client.search(query_vector, corpus, top_k)
+        matches = self.embedding_service.search(query_vector, corpus, top_k)
         return QueryResponse(
             data=matches, count=len(matches), ellapsed=time.perf_counter() - start
         )

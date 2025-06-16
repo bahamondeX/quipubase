@@ -57,7 +57,7 @@ class Embedding(BaseModel):
             np.ndarray: lambda v: v.tolist(),
         },
     }
-    content: str
+    content: tp.Union[str, list[str]] 
     embedding: tp.Annotated[
         NDArray[np.float32],
         WithJsonSchema({"type": "array", "items": {"type": "number"}}),
@@ -74,6 +74,8 @@ class Embedding(BaseModel):
     @computed_field(return_type=str)
     @property
     def id(self):
+        if isinstance(self.content, list):
+            return encrypt(" ".join(self.content))
         return encrypt(self.content)
 
     @field_serializer("embedding")
@@ -138,7 +140,6 @@ class Embedding(BaseModel):
                 iterable.next()
                 continue
 
-
 class QueryMatch(BaseModel):
     """
     Represents a similarity search result.
@@ -194,7 +195,7 @@ class EmbedText(BaseModel):
         },
     }
 
-    content: list[str]
+    input: list[str] | str
     model: EmbeddingModel
 
 
@@ -229,7 +230,7 @@ class SemanticContent(tpe.TypedDict):
     """
 
     id: str
-    content: str
+    content: tp.Union[str, list[str]]
 
 
 class UpsertResponse(tpe.TypedDict):
