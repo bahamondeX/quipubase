@@ -42,7 +42,6 @@ class ImageGenerationService:
 			config={
 				"number_of_images": request.get("n") or 1,
 				"enhance_prompt": True,
-				"add_watermark": False,
 				"output_mime_type": "image/png",
 				"person_generation": types.PersonGeneration.ALLOW_ADULT,
 				"aspect_ratio": "16:9"
