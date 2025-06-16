@@ -45,7 +45,6 @@ class ImageGenerationService:
 				"add_watermark": False,
 				"output_mime_type": "image/png",
 				"person_generation": types.PersonGeneration.ALLOW_ADULT,
-				"seed": random.randint(0, 2**32 - 1),
 				"aspect_ratio": "16:9"
 			}
 		)
