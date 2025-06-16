@@ -14,7 +14,6 @@ def route():
 			status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
 			detail=f"Failed to initialize Groq client: {str(e)}"
 		)
-	
 	# Create an API router for audio-related endpoints
 	app = APIRouter(
 		prefix="/audio/transcriptions", # OpenAI's audio endpoints are typically under /v1/audio
@@ -25,9 +24,8 @@ def route():
 	async def _(
 		file: UploadFile,
 		model: tp.Literal["whisper-large-v3","whisper-large-v3-turbo"] = Form(..., description="The name of the model to use for transcription. Currently ignored as Google Cloud Speech-to-Text handles model selection internally or via configuration. OpenAI models like 'whisper-1' are for compatibility."),
-		language: str = Form(default="en", description="The language of the input audio. Supplying the input language in ISO-639-1 format (e.g., 'en', 'es', 'fr'). This will be converted to a BCP-47 language code for Google (e.g., 'en-US', 'es-ES')."),
-		response_format: tp.Literal["text","json","verbose_json"] = Form("json", description="The format of the transcript output. Only 'json' is fully supported, 'text' will return plain text. Other OpenAI formats like 'srt', 'vtt', 'verbose_json' are not directly supported and will default to 'json' behavior."),
-		temperature: float= Form(1, description="The sampling temperature, between 0 and 1. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Not directly used by Google Cloud Speech-to-Text."),
+		response_format: tp.Literal["text","json","verbose_json"] = Form("verbose_json", description="The format of the transcript output. Only 'json' is fully supported, 'text' will return plain text. Other OpenAI formats like 'srt', 'vtt', 'verbose_json' are not directly supported and will default to 'json' behavior."),
+		temperature: float= Form(0.0, description="The sampling temperature, between 0 and 1. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Not directly used by Google Cloud Speech-to-Text."),
 		prompt: Optional[str] = Form(None, description="An optional text to guide the model's style or continue a previous audio segment. Not directly used by Google Cloud Speech-to-Text.")
 	  ):
 		"""
@@ -38,8 +36,6 @@ def route():
 				: UploadFile - The audio file to transcribe.
 			model
 				: str - The name of the model to use for transcription. Currently ignored as Google Cloud Speech-to-Text handles model selection internally or via configuration. OpenAI models like 'whisper-1' are for compatibility.
-			language	
-				: Optional[str] - The language of the input audio. Supplying the input language in ISO-639-1 format (e.g., 'en', 'es', 'fr'). This will be converted to a BCP-47 language code for Google (e.g., 'en-US', 'es-ES').
 			response_format
 				: tp.Literal["text","json","verbose_json"] - The format of the transcript output. Only 'json' is fully supported, 'text' will return plain text. Other OpenAI formats like 'srt', 'vtt', 'verbose_json' are not directly supported and will default to 'json' behavior.
 			temperature
@@ -65,11 +61,7 @@ def route():
 				detail=f"Unsupported audio format: {content_type}. Supported formats are mp3, wav, flac, aac, opus."
 			)
 		# Convert language to BCP-47 format if provided
-		if not language:
-			language_code = "en"
-		else:
-			language_code = language.lower()
-		assert len(language_code) == 2, "Language code must be in ISO-639-1 format (e.g., 'en', 'es', 'fr')."
+	
 		# Set the response format
 		if response_format not in ["text", "json", "verbose_json"]:
 			raise HTTPException(
@@ -81,7 +73,6 @@ def route():
 			response = await speech_client.audio.transcriptions.create(
 				file=(file.filename,audio_content,content_type),
 				model=model,
-				language=language_code,
 				response_format=response_format,
 				temperature=temperature,
 				prompt=prompt or ""
