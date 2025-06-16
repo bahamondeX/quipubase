@@ -35,10 +35,12 @@ def route():
         """
         Generates audio from the input text using Google Cloud Text-to-Speech.
         """
-        if params.response_format not in MEDIA_TYPES:
+        response_format = params.get("response_format", "mp3")
+        # Validate the response format against supported media types
+        if response_format not in MEDIA_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported response_format: {params.response_format}. "
+                detail=f"Unsupported response_format: {         response_format}. "
                 f"Supported formats are {list(MEDIA_TYPES.keys())}.",
             )
 
@@ -48,7 +50,7 @@ def route():
 
             # Get the appropriate media type
             media_type = MEDIA_TYPES.get(
-                params.response_format, "application/octet-stream"
+                response_format, "application/octet-stream"
             )
 
             # Generator function to stream chunks of audio bytes
@@ -73,7 +75,7 @@ def route():
                 audio_streamer(),
                 media_type=media_type,
                 headers={
-                    "Content-Disposition": f"attachment; filename=audio.{EXT_MAPPING.get(params.response_format, 'mp3')}"
+                    "Content-Disposition": f"attachment; filename=audio.{EXT_MAPPING.get(response_format, 'mp3')}"
                 },
             )
 
