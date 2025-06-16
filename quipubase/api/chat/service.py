@@ -265,18 +265,16 @@ class DeepResearch(OpenAITool):
                         )
                         # Recursive call to DeepResearch
                         async for inner_chunk in tool.run():
-                            yield inner_chunk
                             data = inner_chunk.choices[0].delta.content
                             if not data:
                                 continue
                             else:
                                 string += data
-                        self.messages.append({"role": "system", "content": string})
-                        string = ""
-                        async for inner_inner_chunk in self.run():
-                            yield inner_inner_chunk
-                yield chunk
-
+                            self.messages.append({"role": "system", "content": string})
+                            string = ""
+                            async for inner_chunk in self.run():
+                                yield inner_chunk
+                            
     def _parse_chunk(self, chunk: str):
         if self.messages[-1]["role"] == "assistant":
             return ChatCompletionChunk(
