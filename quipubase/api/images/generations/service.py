@@ -1,5 +1,5 @@
 import time
-import base64c as base64
+import base64c as base64 # type: ignore
 import os
 from hashlib import md5
 import random
@@ -84,10 +84,6 @@ class ImageGenerationService:
 					yield {"url": image_url}
 				except Exception as e:
 					raise ValueError("No image generated")
-	async def run(self, request:ImageGenerateParams):
+	async def run(self, request:ImageGenerateParams)->dict[str,object]:
 		data = list(self.generator(request))
 		return {"data":data,"created":int(time.time())}
-
-	async def create(self):
-		# Implementation needed or remove this method if not used.
-		return {"data": list(self.generator())}

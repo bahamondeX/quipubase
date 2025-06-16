@@ -7,4 +7,4 @@ service = ImageGenerationService()
 
 @app.post("")
 async def image_generation_endpoint(request: ImageGenerateParams):
-    return await service.run()
+    return await service.run(request)
