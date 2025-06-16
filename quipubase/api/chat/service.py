@@ -151,7 +151,7 @@ class GoogleSearch(OpenAITool):
 			yield self._parse_chunk(json.dumps(response_json))
 
 
-class ChatCompletion(BaseModel):
+class ChatCompletion	(BaseModel):
 	model_config = {"extra": "allow"}
 	model: tp.Literal[
 		"gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-06-05"
