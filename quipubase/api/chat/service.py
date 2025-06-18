@@ -1,4 +1,3 @@
-
 import json
 import os
 import time
@@ -152,65 +151,32 @@ class GoogleSearch(OpenAITool):
 
 
 class ChatCompletion(BaseModel):
-	model_config = {"extra": "allow"}
-	model: tp.Literal[
-		"gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-06-05", "gemini-2.5-pro-preview-05-06"
-	] = Field(
-		default="gemini-2.5-pro-preview-06-05",
-		description="The model to use for the chat completion.",
-	)
-	messages: tp.List[ChatCompletionMessageParam] = Field(
-		..., description="The messages to guide the deep research process."
-	)
-	tools: tp.Optional[tp.List[ChatCompletionToolParam]] = Field(	
-		default=None,
-		description="The tools that the model can utilize during the research.",
-	)
-	tool_choice: ChatCompletionToolChoiceOptionParam = Field(default="auto")
-	stream: bool = Field(default=True)
-	max_tokens: int = Field(
-		default=65536,
-		description="The maximum number of tokens to generate in the research run.",
-	)
+    model_config = {"extra": "allow"}
+    model: str = Field(
+        default="gemini-2.5-pro-preview-06-05",
+        description="The model to use for the chat completion.",
+    )
+    messages: tp.List[ChatCompletionMessageParam] = Field(
+        ..., description="The messages to guide the deep research process."
+    )
+    tools: tp.Optional[tp.List[ChatCompletionToolParam]] = Field(
+        default=None,
+        description="The tools that the model can utilize during the research.",
+    )
+    tool_choice: ChatCompletionToolChoiceOptionParam = Field(default="auto")
+    stream: bool = Field(default=False)
+    max_tokens: int = Field(
+        default=65536,
+        description="The maximum number of tokens to generate in the research run.",
+    )
 
-		
-	async def run(self):
-		client = AsyncOpenAI()
-		if self.stream is False:
-			return await client.chat.completions.create(
-				model=self.model,
-				messages=self.messages,
-				tools=self.tools or [],
-				tool_choice=self.tool_choice,
-				max_tokens=self.max_tokens,
-				stream=False,
-			)
-		else:
-			return await client.chat.completions.create(
-			model=self.model,
-			messages=self.messages,
-			tools=self.tools or [],
-			tool_choice=self.tool_choice,
-			stream=True,
-			max_tokens=self.max_tokens,
-		)
-							
-	def _parse_chunk(self, chunk: str):
-		if self.messages[-1]["role"] == "assistant":
-			return ChatCompletionChunk(
-				id=str(uuid.uuid4()),
-				choices=[
-					Choice(delta=ChoiceDelta(content=chunk, role="assistant"), index=0)
-				],
-				created=int(time.time()),
-				model=self.model,
-				object="chat.completion.chunk",
-			)
-		else:
-			return ChatCompletionChunk(
-				id=str(uuid.uuid4()),
-				choices=[Choice(delta=ChoiceDelta(content=chunk), index=0)],
-				created=int(time.time()),
-				model=self.model,
-				object="chat.completion.chunk",
-			)
+    async def run(self):
+        client = AsyncOpenAI()
+        if self.stream is False:
+            return await client.chat.completions.create(
+                **self.model_dump(exclude_none=True)
+            )
+        else:
+            return await client.chat.completions.create(
+                **self.model_dump(exclude_none=True)
+            )
