@@ -151,7 +151,7 @@ class GoogleSearch(OpenAITool):
 
 
 class ChatCompletion(BaseModel):
-    model_config = {"extra": "allow"}
+    model_config = {"extra": "ignore"}
     model: str = Field(
         default="gemini-2.5-pro-preview-06-05",
         description="The model to use for the chat completion.",
