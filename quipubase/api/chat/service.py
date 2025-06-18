@@ -19,7 +19,7 @@ from openai.types.chat.chat_completion_tool_param import \
 from pydantic import BaseModel, Field
 
 T = tp.TypeVar("T")
-
+client = AsyncOpenAI()
 
 class Tool(BaseModel, LazyProxy[T], ABC):
 	"""Base Tool class for all vendors tool framework implementations"""
@@ -171,7 +171,6 @@ class ChatCompletion(BaseModel):
     )
 
     async def run(self):
-        client = AsyncOpenAI()
         if self.stream is False:
             return await client.chat.completions.create(
                 **self.model_dump(exclude_none=True)
