@@ -12,17 +12,17 @@ from ..service import CollectionManager
 from ..typedefs import PubResponse, QuipubaseRequest, SubResponse
 from .service import PubSub
 
-logger = get_logger("[PubSubRouter]")
+logger = get_logger("[ObjectsRouter]")
 
 
 def route() -> APIRouter:
-    router = APIRouter(tags=["collections"],prefix="/collections")
+    router = APIRouter(tags=["collections"], prefix="/collections")
     col_manager = CollectionManager()
 
     @handle
     @router.post("/objects/{collection_id}", response_model=PubResponse)
     async def _(collection_id: str, req: QuipubaseRequest):
-        klass = col_manager.retrieve_collection(collection_id)
+        klass = await col_manager.retrieve_collection(collection_id)
 
         pubsub = PubSub[klass]()
         item = None
@@ -64,7 +64,7 @@ def route() -> APIRouter:
     async def _(request: Request, collection_id: str):
         """Subscribe to events for a specific collection"""
         try:
-            klass = col_manager.retrieve_collection(collection_id)
+            klass = await col_manager.retrieve_collection(collection_id)
             pubsub = PubSub[klass]()
 
             async def event_generator() -> AsyncIterator[str]:

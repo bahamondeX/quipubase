@@ -49,9 +49,7 @@ def route():
             audio_content_bytes = await tts_service.create_speech(params)
 
             # Get the appropriate media type
-            media_type = MEDIA_TYPES.get(
-                response_format, "application/octet-stream"
-            )
+            media_type = MEDIA_TYPES.get(response_format, "application/octet-stream")
 
             # Generator function to stream chunks of audio bytes
             async def audio_streamer() -> AsyncGenerator[bytes, None]:

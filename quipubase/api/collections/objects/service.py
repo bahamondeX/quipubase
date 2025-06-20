@@ -1,7 +1,7 @@
 import asyncio
 import typing as tp
 
-from quipubase.lib import db
+from quipubase.lib import cache_store
 
 from ..typedefs import Collection, SubResponse
 
@@ -12,7 +12,7 @@ class PubSub(tp.Generic[T]):
     _model: type[T]
 
     def __init__(self):
-        self._pubsub = db.pubsub()  # type: ignore
+        self._pubsub = cache_store.pubsub()  # type: ignore
 
     @classmethod
     def __class_getitem__(cls, model: type[T]):
@@ -20,7 +20,7 @@ class PubSub(tp.Generic[T]):
         return cls
 
     async def pub(self, channel: str, event: SubResponse[T]) -> None:
-        await db.publish(channel, event.model_dump_json())  # type: ignore
+        await cache_store.publish(channel, event.model_dump_json())  # type: ignore
 
     async def sub(self, channel: str) -> tp.AsyncGenerator[SubResponse[T], None]:
         await self._pubsub.subscribe(channel)  # type: ignore

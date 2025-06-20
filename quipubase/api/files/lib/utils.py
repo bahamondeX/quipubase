@@ -9,7 +9,7 @@ from functools import partial, reduce, wraps
 from typing import Awaitable, Callable, Coroutine, Type, TypeVar, Union, cast
 from uuid import uuid4
 
-import base64c as base64 # type: ignore
+import base64c as base64  # type: ignore
 from cachetools import TTLCache, cached
 from typing_extensions import ParamSpec
 

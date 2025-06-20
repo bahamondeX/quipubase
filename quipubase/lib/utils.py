@@ -37,6 +37,7 @@ class ExceptionObject(tpe.TypedDict):
 def encrypt(s: str):
     return sha256(s.encode()).hexdigest()
 
+
 def ttl_cache(
     func: Callable[P, T], *, maxsize: int = 128, ttl: int = 3600 * 24 * 365
 ) -> Callable[P, T]:
@@ -47,6 +48,7 @@ def ttl_cache(
         return func(*args, **kwargs)
 
     return wrapper
+
 
 def get_key(*, object: dict[str, Any], key: str) -> None:
     try:
@@ -99,6 +101,7 @@ def get_logger(
     """
     try:
         from loguru import logger
+
         return logger
     except ImportError as e:
         pass

@@ -1,9 +1,9 @@
-import base64c as base64  # import base64c as base64 for binary content handling
 import os
 import time
 import typing as tp
 from pathlib import Path
 
+import base64c as base64  # import base64c as base64 for binary content handling
 from boto3 import client  # type:ignore
 from botocore.config import Config  # type:ignore
 from botocore.exceptions import \

@@ -1,40 +1,18 @@
-from pathlib import Path
-
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .audio import route as audio_router
-from .auth import route as auth_router
-from .chat import route as chat_router
-from .collections import (Collection, CollectionType, JsonSchemaModel,
-                          QuipubaseRequest)
-from .collections import route as data_router
-from .collections.objects import route as pubsub_router
-from .files import route as content_router
-from .images import route as images_router
-from .models import route as models_router
-from .vector import route as setup_routes
-
-__all__ = [
-    "data_router",
-    "pubsub_router",
-    "setup_routes",
-    "auth_router",
-    "content_router",
-    "chat_router",
-    "images_router",
-    "audio_router",
-]
-
-
-# Import all necessary components to avoid forward reference issues
-
-# Rebuild models after all imports are resolved to avoid forward reference issues
-
-__all__ = ["CollectionType", "Collection", "create_app"]
+from ..lib import setup
+from .audio import route as audio_routes
+from .auth import route as auth_routes
+from .chat import route as chat_routes
+from .collections import Collection, JsonSchemaModel, QuipubaseRequest
+from .collections import route as collections_routes
+from .collections.objects import route as objects_routes
+from .files import route as files_routes
+from .images import route as images_routes
+from .models import route as models_routes
+from .vector import route as vector_routes
+from .music import route as music_routes
 
 
 def model_rebuild():
@@ -45,38 +23,35 @@ def model_rebuild():
     JsonSchemaModel.model_rebuild()
 
 
+@setup
 def create_app():
     model_rebuild()
-    static = StaticFiles(directory="./data/blobs", html=True)
     app = FastAPI(
+        debug=True,
         title="Quipubase",
-        description="**Quipubase** is a **real-time document database** designed for _AI-native_ applications. Built on top of `RocksDB`, it enables **dynamic, schema-driven collections** using `jsonschema` for flexible document modeling. With **native support for vector similarity search**, Quipubase empowers intelligent querying at scale. Its built-in `pub/sub` architecture allows **real-time subscriptions to document-level events**, making it _a powerful backend for live, reactive AI systems_.",
+        description="""**Quipubase** is a cutting-edge, **real-time document database** specifically engineered for the demands of **AI-native applications**.
+        **Key Features for Developers:**
+        * **High Performance:** Built on `RocksDB` for efficient, high-throughput data operations.
+        * **Flexible Schemas:** Define dynamic, self-validating collections using `jsonschema`, adapting effortlessly to evolving data models.
+        * **Integrated Vector Search:** Leverage native support for **vector similarity search** to power intelligent querying, recommendations, and semantic search capabilities at scale.
+        * **Real-time Reactivity:** Implement live, reactive AI systems with a robust `pub/sub` architecture, providing **real-time subscriptions to document-level events**.
+        * **Simplified Development:** Designed to be the ideal backend for modern, intelligent applications, streamlining data management for AI workflows.
+        Quipubase empowers developers to build responsive, intelligent, and scalable AI-driven solutions with ease.
+        """,
         version="0.0.1",
     )
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    app.include_router(data_router(), prefix="/v1")
-    app.include_router(pubsub_router(), prefix="/v1")
-    app.include_router(setup_routes(), prefix="/v1")
-    app.include_router(auth_router(), prefix="/v1")
-    app.include_router(content_router(), prefix="/v1")
-    app.include_router(chat_router(), prefix="/v1")
-    app.include_router(models_router(), prefix="/v1")
-    app.include_router(images_router(), prefix="/v1")
-    app.include_router(audio_router(), prefix="/v1")
-    app.mount("/blobs", static, name="blobs")
-
-    @app.get("/", include_in_schema=False)
-    def _():
-        return HTMLResponse(Path("index.html").read_text())
-
-    @app.get("/favicon.svg", include_in_schema=False)
-    def _():
-        return FileResponse("./favicon.svg")
-
+    for r in (
+        audio_routes,
+        auth_routes,
+        collections_routes,
+        chat_routes,
+        objects_routes,
+        audio_routes,
+        images_routes,
+        files_routes,
+        models_routes,
+        vector_routes,
+        music_routes
+    ):
+        app.include_router(r(), prefix="/v1")
     return app

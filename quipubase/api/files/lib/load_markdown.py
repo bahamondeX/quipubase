@@ -1,8 +1,8 @@
-import base64c as base64
 import re
 import typing as tp
 from dataclasses import dataclass
 
+import base64c as base64
 import markdown
 import typing_extensions as tpe
 

@@ -34,14 +34,13 @@ def route() -> APIRouter:
             store = VectorStoreService(namespace=namespace, model=data.model)
             embeddings = [
                 Embedding(content=data.input, embedding=store.embed(data.input))
-                
             ]
             response = store.upsert(embeddings)
             return response
         except Exception as e:
             raise QuipubaseException(status_code=500, detail=str(e))
 
-    @app.put("/{namespace}", response_model=QueryResponse)
+    @app.put("/vector/{namespace}", response_model=QueryResponse)
     def _(namespace: str, data: QueryText):
         """
         Query the vector store for similar texts.

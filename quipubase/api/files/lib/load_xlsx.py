@@ -1,10 +1,10 @@
-import base64c as base64
 import json
 import typing as tp
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
+import base64c as base64
 import typing_extensions as tpe
 from openpyxl import load_workbook
 

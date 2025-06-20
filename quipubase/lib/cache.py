@@ -6,12 +6,14 @@ from functools import wraps
 import orjson
 from aioredis import Redis
 
-from .utils import ttl_cache
-
+from .utils import get_logger, ttl_cache
 
 # Caching decorator
 T = tp.TypeVar("T")
 P = tp.ParamSpec("P")
+
+logger = get_logger()
+
 
 @ttl_cache
 def load_cache():
@@ -21,11 +23,14 @@ def load_cache():
         encoding="utf-8",
         decode_responses=False,  # for orjson
     )
+    logger.info(f"Connected to cache at {os.environ['REDIS_URL']}")
     return db
+
 
 def cache(ttl: int = 60 * 60 * 24 * 7):
     def decorator(func: tp.Callable[P, tp.Awaitable[T] | T]):
         db = load_cache()
+
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             key = f"{func.__module__}.{func.__qualname__}:{orjson.dumps({'args': args, 'kwargs': kwargs}).hex()}"
@@ -40,5 +45,7 @@ def cache(ttl: int = 60 * 60 * 24 * 7):
             )
             await db.set(key, orjson.dumps(result), ex=ttl)  # type: ignore
             return result  # type: ignore
+
         return wrapper
+
     return decorator

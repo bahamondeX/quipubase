@@ -1,7 +1,7 @@
-import base64c as base64
 import typing as tp
 from dataclasses import dataclass
 
+import base64c as base64
 import typing_extensions as tpe
 from fitz import open as open_pdf  # PyMuPDF
 

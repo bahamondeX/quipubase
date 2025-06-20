@@ -57,7 +57,7 @@ class Embedding(BaseModel):
             np.ndarray: lambda v: v.tolist(),
         },
     }
-    content: tp.Union[str, list[str]] 
+    content: tp.Union[str, list[str]]
     embedding: tp.Annotated[
         NDArray[np.float32],
         WithJsonSchema({"type": "array", "items": {"type": "number"}}),
@@ -139,6 +139,7 @@ class Embedding(BaseModel):
             except:
                 iterable.next()
                 continue
+
 
 class QueryMatch(BaseModel):
     """

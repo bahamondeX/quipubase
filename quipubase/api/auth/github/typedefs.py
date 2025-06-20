@@ -1,7 +1,7 @@
-import base64c as base64
 import typing as tp
 from datetime import datetime
 
+import base64c as base64
 from pydantic import BaseModel, computed_field
 
 

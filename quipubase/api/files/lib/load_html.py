@@ -1,7 +1,7 @@
-import base64c as base64
 import typing as tp
 from dataclasses import dataclass
 
+import base64c as base64
 import typing_extensions as tpe
 from bs4 import BeautifulSoup, CData
 from bs4.element import NavigableString
