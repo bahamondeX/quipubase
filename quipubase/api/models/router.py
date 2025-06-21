@@ -2,6 +2,7 @@ import typing as tp
 
 from fastapi import APIRouter
 
+
 def route():
     app = APIRouter(prefix="/models", tags=["models"])
 
@@ -24,7 +25,7 @@ def route():
                     "gemini-2.0-flash",
                 ]
             ],
-            "object": "list"
+            "object": "list",
         }
 
     @app.get("/{model}")

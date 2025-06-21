@@ -11,8 +11,8 @@ from .collections.objects import route as objects_routes
 from .files import route as files_routes
 from .images import route as images_routes
 from .models import route as models_routes
-from .vector import route as vector_routes
 from .music import route as music_routes
+from .vector import route as vector_routes
 
 
 def model_rebuild():
@@ -51,7 +51,7 @@ def create_app():
         files_routes,
         models_routes,
         vector_routes,
-        music_routes
+        music_routes,
     ):
         app.include_router(r(), prefix="/v1")
     return app

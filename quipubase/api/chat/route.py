@@ -1,5 +1,3 @@
-
-
 from fastapi import APIRouter, Body
 from openai.types.chat.chat_completion import \
     ChatCompletion as OpenAIChatCompletion
