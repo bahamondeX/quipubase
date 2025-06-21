@@ -1,7 +1,7 @@
-import typing as tp
 
-from fastapi import APIRouter, Body, HTTPException
-from groq.types.chat.chat_completion import \
+
+from fastapi import APIRouter, Body
+from openai.types.chat.chat_completion import \
     ChatCompletion as OpenAIChatCompletion
 from sse_starlette import EventSourceResponse
 

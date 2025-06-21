@@ -114,7 +114,7 @@ class GoogleSearch(OpenAITool):
 class ChatCompletion(BaseModel):
     model_config = {"extra": "ignore"}
     model: str = Field(
-        default="maverick", description="The model to use for the chat completion."
+        default="gemini-flash-2.5", description="The model to use for the chat completion."
     )
     messages: tp.List[ChatCompletionMessageParam] = Field(
         ..., description="The messages to guide the deep research process."
@@ -134,8 +134,5 @@ class ChatCompletion(BaseModel):
     async def run(
         self,
     ) -> tp.Union[OpenAIChatCompletion, tp.AsyncGenerator[ChatCompletionChunk, None]]:
-        model_id = REVERSE_MAPPING.get(self.model, self.model)
         payload = self.model_dump(exclude_none=True)
-        payload["model"] = model_id
-
         return await client.chat.completions.create(**payload)  # type: ignore
