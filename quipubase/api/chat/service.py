@@ -20,7 +20,7 @@ client = AsyncOpenAI()
 class ChatCompletion(BaseModel):
     model_config = {"extra": "ignore"}
     model: str = Field(
-        default="gemini-flash-2.5",
+        default="gemini-flash-2.0",
         description="The model to use for the chat completion.",
     )
     messages: tp.List[ChatCompletionMessageParam] = Field(
