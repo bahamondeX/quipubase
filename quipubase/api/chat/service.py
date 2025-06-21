@@ -6,27 +6,35 @@ import uuid
 from abc import ABC, abstractmethod
 
 import httpx
+from groq import AsyncGroq
+from groq.types.chat.chat_completion_message_param import \
+    ChatCompletionMessageParam
+from groq.types.chat.chat_completion_tool_choice_option_param import \
+    ChatCompletionToolChoiceOptionParam
+from groq.types.chat.chat_completion_tool_param import ChatCompletionToolParam
 from openai import AsyncOpenAI
 from openai._utils._proxy import LazyProxy
 from openai.types.chat.chat_completion import \
     ChatCompletion as OpenAIChatCompletion
 from openai.types.chat.chat_completion_chunk import (ChatCompletionChunk,
                                                      Choice, ChoiceDelta)
-from openai.types.chat.chat_completion_message_param import \
-    ChatCompletionMessageParam
-from openai.types.chat.chat_completion_tool_choice_option_param import \
-    ChatCompletionToolChoiceOptionParam
-from openai.types.chat.chat_completion_tool_param import \
-    ChatCompletionToolParam
 from pydantic import BaseModel, Field
 
 T = tp.TypeVar("T")
-client = AsyncOpenAI()
+
+client = AsyncGroq()
+
+MAPPING: dict[str, str] = {
+    "llama-3.3-70b-versatile": "versatile",
+    "llama-3.1-8b-instant": "instant",
+    "meta-llama/llama-4-scout-17b-16e-instruct": "scout",
+    "meta-llama/llama-4-maverick-17b-128e-instruct": "maverick",
+}
+
+REVERSE_MAPPING: dict[str, str] = {v: k for k, v in MAPPING.items()}
 
 
 class Tool(BaseModel, LazyProxy[T], ABC):
-    """Base Tool class for all vendors tool framework implementations"""
-
     model_config = {"extra": "ignore"}
 
     @classmethod
@@ -59,11 +67,6 @@ class Tool(BaseModel, LazyProxy[T], ABC):
 
 
 class OpenAITool(Tool[AsyncOpenAI]):
-    """
-    Base class for tools that interact with OpenAI-compatible APIs.
-    Subclasses should implement the `run` method to define the tool's functionality.
-    """
-
     model_config = {"extra": "allow"}
 
     @abstractmethod
@@ -75,28 +78,6 @@ class OpenAITool(Tool[AsyncOpenAI]):
 
 
 class Transcribe(Tool[AsyncOpenAI]):
-    """
-    Transcribe Tool
-    ------------
-    **Description**: This tool transcribes an audio file from a given URL. It fetches the audio file and then uses a transcription service to convert the audio into text.
-
-    **Input**:
-    - `url`: The URL of the audio file to transcribe (string, required). Ensure the URL is publicly accessible and the file is in a supported audio format.
-
-    **Output**:
-    - A stream of text chunks representing the transcription of the audio file. Each chunk is part of a `ChatCompletionChunkTypedDict`.
-
-    **Vendor**: Uses the Groq OpenAI API endpoint for transcription.
-    **Model**: `whisper-large-v3-turbo`
-
-    **Example Usage**:
-    ```json
-    {
-      "url": "[https://example.com/audio.wav](https://example.com/audio.wav)"
-    }
-    ```
-    """
-
     model_config = {"extra": "allow"}
     url: str = Field(..., description="Url of the audio file to transcribe")
 
@@ -118,29 +99,6 @@ class Transcribe(Tool[AsyncOpenAI]):
 
 
 class GoogleSearch(OpenAITool):
-    """
-    GoogleSearch
-    ------------
-    **Description**: This tool performs a Google Custom Search to retrieve relevant web results based on a given query. Use this tool when the information needed to answer a user's question might not be in your training data or falls after your knowledge cut-off date.
-
-    **Input**:
-    - `q`: The query to search for (string, required). This should be a concise and effective search query to get the best results.
-
-    **Output**:
-    - A JSON string containing the search results from Google. The structure of this JSON object follows the Google Custom Search API response format. Each chunk is part of a `ChatCompletionChunkTypedDict`.
-
-    **Constraints**:
-    - Ensure that the environment variables `SEARCH_ENGINE_API_KEY` and `SEARCH_ENGINE_ID` are properly configured for this tool to function.
-    - **Cut-off date**: `2025 May 05`
-
-    **Example Usage**:
-    ```json
-    {
-      "q": "latest advancements in AI research"
-    }
-    ```
-    """
-
     model_config = {"extra": "allow"}
     q: str = Field(..., description="The query to search for.")
 
@@ -156,8 +114,7 @@ class GoogleSearch(OpenAITool):
 class ChatCompletion(BaseModel):
     model_config = {"extra": "ignore"}
     model: str = Field(
-        default="gemini-2.5-pro-preview-06-05",
-        description="The model to use for the chat completion.",
+        default="maverick", description="The model to use for the chat completion."
     )
     messages: tp.List[ChatCompletionMessageParam] = Field(
         ..., description="The messages to guide the deep research process."
@@ -167,20 +124,18 @@ class ChatCompletion(BaseModel):
         description="The tools that the model can utilize during the research.",
     )
     tool_choice: ChatCompletionToolChoiceOptionParam = Field(default="auto")
-    stream: bool = Field(default=False)
-    max_tokens: int = Field(
-        default=65536,
+    stream: bool = Field(default=True)
+    max_completion_tokens: int = Field(
+        default=8192,
         description="The maximum number of tokens to generate in the research run.",
     )
+    max_tokens: tp.Optional[int] = Field(default=None)
 
     async def run(
         self,
     ) -> tp.Union[OpenAIChatCompletion, tp.AsyncGenerator[ChatCompletionChunk, None]]:
-        if self.stream is False:
-            return await client.chat.completions.create(
-                **self.model_dump(exclude_none=True)
-            )
-        else:
-            return await client.chat.completions.create(
-                **self.model_dump(exclude_none=True)
-            )
+        model_id = REVERSE_MAPPING.get(self.model, self.model)
+        payload = self.model_dump(exclude_none=True)
+        payload["model"] = model_id
+
+        return await client.chat.completions.create(**payload)  # type: ignore

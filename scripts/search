@@ -1,0 +1,574 @@
+#!/usr/bin/env python3
+import http.client
+import json
+import logging
+import os
+import re
+import ssl
+import textwrap
+import threading
+import typing as tp
+from dataclasses import asdict, dataclass, field
+from urllib.parse import quote_plus
+
+
+# --- Logger setup ---
+def get_logger(name: str = __name__) -> logging.Logger:
+    logger_ = logging.getLogger(name)
+    if logger_.handlers:
+        return logger_
+
+    logger_.setLevel(logging.WARNING)  # Less verbose by default
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(levelname)s: %(message)s")
+    handler.setFormatter(formatter)
+    logger_.addHandler(handler)
+    return logger_
+
+
+logger = get_logger()
+
+
+# --- Exceptions ---
+@dataclass
+class HttpException(Exception):
+    content: str = "Internal Server Error"
+    status: int = 500
+
+    def dict(self):
+        return asdict(self)
+
+    def json(self):
+        return json.dumps(self.dict())
+
+
+# --- Response with better resource management ---
+@dataclass
+class Response:
+    status: int
+    headers: dict[str, str]
+    res: tp.Optional[http.client.HTTPResponse] = field(default=None, repr=False)
+    _content: tp.Optional[bytes] = field(default=None, repr=False)
+    _closed: bool = field(default=False, init=False)
+
+    @classmethod
+    def from_http_response(cls, response: http.client.HTTPResponse) -> "Response":
+        headers = dict(response.getheaders())
+        content_type = headers.get("content-type", "").lower()
+
+        is_stream = (
+            response.chunked
+            or "text/event-stream" in content_type
+            or "application/octet-stream" in content_type
+            or headers.get("transfer-encoding", "").lower() == "chunked"
+        )
+
+        if is_stream:
+            return cls(status=response.status, headers=headers, res=response)
+
+        content = response.read()
+        response.close()
+        return cls(
+            status=response.status, headers=headers, _content=content, _closed=True
+        )
+
+    def content(self) -> bytes:
+        if self._content is not None:
+            return self._content
+        if self.res and not self._closed:
+            self._content = b"".join(self.iter_bytes())
+            self.close()
+            return self._content
+        raise ValueError("No content available")
+
+    def text(self, encoding: str = "utf-8") -> str:
+        return self.content().decode(encoding)
+
+    def json(self) -> tp.Any:
+        return json.loads(self.text())
+
+    def iter_bytes(self, chunk_size: int = 8192) -> tp.Iterator[bytes]:
+        if not self.res or self._closed:
+            raise ValueError("Not a stream or already closed")
+
+        try:
+            while True:
+                chunk = self.res.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            self.close()
+
+    def iter_lines(self) -> tp.Iterator[bytes]:
+        if not self.res or self._closed:
+            raise ValueError("Not a stream or already closed")
+
+        try:
+            while True:
+                line = self.res.readline()
+                if not line:
+                    break
+                yield line.rstrip(b"\r\n")
+        finally:
+            self.close()
+
+    def iter_events(self) -> tp.Iterator[str]:
+        for line in self.iter_lines():
+            if not line:
+                continue
+
+            try:
+                text = line.decode("utf-8")
+                if not text.startswith("data: "):
+                    continue
+
+                content = text[6:]  # Remove "data: "
+                if content == "[DONE]":
+                    break
+
+                yield content
+            except UnicodeDecodeError:
+                logger.warning(f"Failed to decode line: {line[:50]}...")
+                continue
+
+    def close(self):
+        if self.res and not self._closed:
+            try:
+                self.res.close()
+            except:
+                pass
+            finally:
+                self._closed = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
+# --- Thread-safe HTTP client ---
+@dataclass
+class HttpClient:
+    host: str
+    port: int = 443
+    headers: dict[str, str] = field(default_factory=dict)
+    use_https: bool = True
+    timeout: float = 30.0
+    _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
+
+    def _create_connection(self) -> http.client.HTTPConnection:
+        if self.use_https:
+            conn = http.client.HTTPSConnection(
+                self.host,
+                self.port,
+                timeout=self.timeout,
+                context=ssl.create_default_context(),
+            )
+        else:
+            conn = http.client.HTTPConnection(
+                self.host, self.port, timeout=self.timeout
+            )
+        return conn
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        headers: tp.Optional[dict[str, str]] = None,
+        body: tp.Optional[tp.Union[dict, str, bytes]] = None,
+    ) -> Response:
+        with self._lock:
+            final_headers = {**self.headers, **(headers or {})}
+
+            # Prepare body
+            if isinstance(body, dict):
+                body_data = json.dumps(body).encode("utf-8")
+                final_headers.setdefault("Content-Type", "application/json")
+            elif isinstance(body, str):
+                body_data = body.encode("utf-8")
+            elif isinstance(body, bytes):
+                body_data = body
+            else:
+                body_data = None
+
+            if body_data:
+                final_headers["Content-Length"] = str(len(body_data))
+
+            conn = self._create_connection()
+            try:
+                conn.request(method, path, body_data, final_headers)
+                response = conn.getresponse()
+                return Response.from_http_response(response)
+            except Exception as e:
+                conn.close()
+                logger.error(f"HTTP request failed: {e}")
+                raise HttpException(content=str(e), status=500)
+
+
+SEARCH_ENGINE_ID = "339e21252ff1e4fef"
+SEARCH_ENGINE_API_KEY = "AIzaSyDIdauHGFX-_1Z1OtFWV8bfz7-mfILwff0"
+
+
+@dataclass
+class SearchResult:
+    title: str
+    url: str
+    snippet: str
+    display_url: str = ""
+
+    @classmethod
+    def from_google_item(cls, item: dict) -> "SearchResult":
+        return cls(
+            title=item.get("title", "No Title"),
+            url=item.get("link", ""),
+            snippet=item.get("snippet", ""),
+            display_url=item.get("displayLink", ""),
+        )
+
+
+@dataclass
+class GoogleSearchClient:
+    api_key: str
+    cx: str
+    http: HttpClient = field(init=False)
+    endpoint: str = "www.googleapis.com"
+
+    def __post_init__(self):
+        self.http = HttpClient(
+            host=self.endpoint, headers={"User-Agent": "google-pse-client/2.0"}
+        )
+
+    def search(
+        self, query: str, num: int = 10, start: int = 1
+    ) -> tuple[list[SearchResult], dict]:
+        """
+        Performs a search using Google Programmable Search Engine.
+        Returns (results, metadata).
+        """
+        # Validate and clamp num parameter
+        num = max(1, min(num, 10))  # Google API max is 10 per request
+
+        path = (
+            f"/customsearch/v1"
+            f"?key={self.api_key}"
+            f"&cx={self.cx}"
+            f"&q={quote_plus(query)}"
+            f"&num={num}"
+            f"&start={start}"
+        )
+
+        try:
+            response = self.http.request("GET", path)
+
+            if response.status != 200:
+                error_msg = f"Google Search Error {response.status}: {response.text()}"
+                logger.error(error_msg)
+                raise HttpException(content=error_msg, status=response.status)
+
+            data = response.json()
+            items = data.get("items", [])
+
+            results = [SearchResult.from_google_item(item) for item in items]
+
+            search_info = data.get("searchInformation", {})
+            metadata = {
+                "total_results": search_info.get("totalResults", "0"),
+                "search_time": search_info.get("searchTime", "0"),
+                "query": data.get("queries", {})
+                .get("request", [{}])[0]
+                .get("searchTerms", query),
+            }
+
+            return results, metadata
+
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON in search response")
+            raise HttpException(content="Invalid JSON response", status=502)
+
+
+class SearchInterface:
+    def __init__(self, client: GoogleSearchClient):
+        self.client = client
+        self.history: list[str] = []
+        self.results_per_page = 10
+        self.current_results: list[SearchResult] = []
+
+    def clear_screen(self):
+        os.system("cls" if os.name == "nt" else "clear")
+
+    def print_header(self):
+        print("=" * 80)
+        print("🔍 GOOGLE SEARCH CLIENT".center(80))
+        print("=" * 80)
+        print()
+
+    def print_help(self):
+        help_text = """
+Commands:
+  <query>           Search for something
+  <query> -n<num>   Search with specific number of results (e.g. "python -n20")
+  /help, /h        Show this help
+  /history         Show search history
+  /clear           Clear screen
+  /results <n>     Set default results per page (1-50)
+  /open <n>        Open result #n in browser (if available)
+  /quit, /exit     Exit the program
+  
+Tips:
+  - Use quotes for exact phrases: "machine learning"
+  - Use site: for specific domains: site:github.com python
+  - Use - to exclude terms: python -snake
+  - Use -n to get more results: python tutorial -n25
+  - Combine options: site:stackoverflow.com python -n15
+        """
+        print(help_text)
+
+    def format_result(
+        self, idx: int, result: SearchResult, terminal_width: int = 80
+    ) -> str:
+        # Clean and truncate title
+        title = re.sub(r"\s+", " ", result.title.strip())
+        if len(title) > terminal_width - 10:
+            title = title[: terminal_width - 13] + "..."
+
+        # Format URL display
+        url_display = result.display_url or result.url
+        if len(url_display) > terminal_width - 10:
+            url_display = url_display[: terminal_width - 13] + "..."
+
+        # Format snippet with proper wrapping
+        snippet = re.sub(r"\s+", " ", result.snippet.strip())
+        wrapped_snippet = textwrap.fill(
+            snippet,
+            width=terminal_width - 10,
+            initial_indent="     ",
+            subsequent_indent="     ",
+        )
+
+        return f"""
+┌─ [{idx:2d}] {title}
+├─ 🌐 {url_display}
+└─ {wrapped_snippet}"""
+
+    def display_results(self, results: list[SearchResult], metadata: dict):
+        if not results:
+            print("❌ No results found.")
+            return
+
+        try:
+            terminal_width = os.get_terminal_size().columns
+        except OSError:
+            terminal_width = 80
+
+        # Display metadata
+        total = metadata.get("total_results", "0")
+        search_time = metadata.get("search_time", "0")
+        query = metadata.get("query", "")
+
+        print(f"📊 Found {total} results for '{query}' ({search_time}s)")
+        print("─" * min(terminal_width, 80))
+
+        # Display results
+        for idx, result in enumerate(results, 1):
+            print(self.format_result(idx, result, terminal_width))
+
+        print("\n" + "─" * min(terminal_width, 80))
+        print(f"📄 Showing {len(results)} results")
+
+    def handle_command(self, command: str) -> bool:
+        """Handle special commands. Returns True if command was handled."""
+        if not command.startswith("/"):
+            return False
+
+        parts = command[1:].split()
+        cmd = parts[0].lower()
+
+        if cmd in ["quit", "exit", "q"]:
+            return True
+
+        elif cmd in ["help", "h"]:
+            self.print_help()
+
+        elif cmd == "clear":
+            self.clear_screen()
+            self.print_header()
+
+        elif cmd == "history":
+            if not self.history:
+                print("📝 No search history.")
+            else:
+                print("📝 Search History:")
+                for i, query in enumerate(self.history[-10:], 1):
+                    print(f"  {i:2d}. {query}")
+
+        elif cmd == "results":
+            if len(parts) > 1:
+                try:
+                    num = int(parts[1])
+                    if 1 <= num <= 100:
+                        self.results_per_page = num
+                        print(f"✅ Default results per page set to {num}")
+                    else:
+                        print("❌ Results per page must be between 1-100")
+                except ValueError:
+                    print("❌ Invalid number")
+            else:
+                print(f"📄 Current default results per page: {self.results_per_page}")
+                print("💡 Use -n flag in queries for one-time overrides: 'python -n25'")
+
+        elif cmd == "open":
+            if len(parts) > 1:
+                try:
+                    idx = int(parts[1]) - 1
+                    if 0 <= idx < len(self.current_results):
+                        url = self.current_results[idx].url
+                        print(f"🌐 Opening: {url}")
+                        # Try to open in browser
+                        import webbrowser
+
+                        webbrowser.open(url)
+                    else:
+                        print(
+                            f"❌ Invalid result number. Use 1-{len(self.current_results)}"
+                        )
+                except (ValueError, ImportError):
+                    print("❌ Cannot open URL")
+            else:
+                print("❌ Specify result number: /open <n>")
+
+        else:
+            print(f"❌ Unknown command: /{cmd}. Type /help for available commands.")
+
+        return False  # Don't quit unless explicitly requested
+
+    def parse_query_with_options(self, query: str) -> tuple[str, int]:
+        """Parse query for -n flag to specify number of results."""
+        import re
+
+        # Look for -n<number> or -n <number> pattern
+        pattern = r"-n\s*(\d+)"
+        match = re.search(pattern, query)
+
+        if match:
+            num_results = int(match.group(1))
+            # Remove the -n flag from query
+            clean_query = re.sub(pattern, "", query).strip()
+            # Limit to reasonable range
+            num_results = max(1, min(num_results, 100))
+            return clean_query, num_results
+
+        return query, self.results_per_page
+
+    def search(self, query: str):
+        """Perform search and display results."""
+        if not query.strip():
+            return
+
+        # Parse query for options
+        clean_query, num_results = self.parse_query_with_options(query)
+
+        if not clean_query.strip():
+            print("❌ Empty search query after removing options")
+            return
+
+        self.history.append(clean_query)
+
+        try:
+            if num_results != self.results_per_page:
+                print(
+                    f"🔍 Searching for: {clean_query} (requesting {num_results} results)"
+                )
+            else:
+                print(f"🔍 Searching for: {clean_query}")
+            print("⏳ Please wait...")
+
+            # For more than 10 results, make multiple requests
+            all_results = []
+            total_requested = num_results
+            metadata = {}
+
+            while len(all_results) < total_requested:
+                batch_size = min(10, total_requested - len(all_results))
+                start_index = len(all_results) + 1
+
+                batch_results, batch_metadata = self.client.search(
+                    clean_query, num=batch_size, start=start_index
+                )
+
+                if not batch_results:
+                    break
+
+                all_results.extend(batch_results)
+
+                # Use metadata from first batch
+                if not metadata:
+                    metadata = batch_metadata
+
+            self.current_results = all_results
+
+            print("\033[2K\r", end="")  # Clear the "Please wait..." line
+            self.display_results(all_results, metadata)
+
+        except HttpException as e:
+            print(f"❌ Search failed: {e.content}")
+        except KeyboardInterrupt:
+            print("\n⏸️  Search interrupted")
+        except Exception as e:
+            print(f"❌ Unexpected error: {e}")
+
+    def run(self):
+        """Main interactive loop."""
+        self.clear_screen()
+        self.print_header()
+
+        print("Type your search query or /help for commands")
+        print("💡 Use -n flag for custom result count: 'python tutorial -n25'")
+        print("─" * 80)
+
+        while True:
+            try:
+                query = input("\n🔎 Search: ").strip()
+
+                if not query:
+                    continue
+
+                # Handle commands
+                if self.handle_command(query):
+                    break
+
+                # Regular search
+                if not query.startswith("/"):
+                    self.search(query)
+
+            except (KeyboardInterrupt, EOFError):
+                break
+            except Exception as e:
+                print(f"❌ Error: {e}")
+
+        print("\n👋 Thanks for using Google Search Client!")
+
+
+def main():
+    api_key = SEARCH_ENGINE_API_KEY
+    cx = SEARCH_ENGINE_ID
+
+    if not api_key or not cx:
+        print("❌ Missing API credentials")
+        print("Set GOOGLE_API_KEY and GOOGLE_CX_ID environment variables")
+        return 1
+
+    try:
+        client = GoogleSearchClient(api_key=api_key, cx=cx)
+        interface = SearchInterface(client)
+        interface.run()
+    except Exception as e:
+        print(f"❌ Failed to start: {e}")
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())

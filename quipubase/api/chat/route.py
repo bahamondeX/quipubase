@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Body
-from openai.types.chat.chat_completion import \
+import typing as tp
+
+from fastapi import APIRouter, Body, HTTPException
+from groq.types.chat.chat_completion import \
     ChatCompletion as OpenAIChatCompletion
 from sse_starlette import EventSourceResponse
 
@@ -14,13 +16,14 @@ def route():
         agent: ChatCompletion = Body(...),
     ):
         response = await agent.run()
-        if not isinstance(response, OpenAIChatCompletion):
+        if isinstance(response, OpenAIChatCompletion):
+            return response
+        else:
 
             async def generator():
                 async for chunk in response:
-                    yield chunk.model_dump_json()
+                    yield chunk.model_dump_json(exclude_none=True)
 
             return EventSourceResponse(generator())
-        return response
 
     return app

@@ -1609,7 +1609,7 @@ console.log('Uploaded and chunked file:', result); // result contains chunks and
 
 </html>
 """
-db = Prisma(auto_register=True)
+db = Prisma(auto_register=True, http={"timeout": 10}, connect_timeout=10)
 
 
 def setup(func: tp.Callable[P, FastAPI]):
@@ -1625,12 +1625,18 @@ def setup(func: tp.Callable[P, FastAPI]):
 
         @app.on_event("startup")
         async def _():
-            await db.connect()
-            logger.info(f"Connected to Database at {os.environ['DATABASE_URL']}")
+            try:
+                await db.connect()
+                logger.info(f"Connected to Database at {os.environ['DATABASE_URL']}")
+            except:
+                logger.info("Couldn't connect to Database.")
 
         @app.on_event("shutdown")
         async def _():
-            await db.disconnect()
+            try:
+                await db.disconnect()
+            except:
+                logger.info("Forcefully shutdown")
 
         app.add_middleware(
             CORSMiddleware,

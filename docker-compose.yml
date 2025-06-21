@@ -1,6 +1,22 @@
 version: '3.8' # Valid version for Docker Compose
 
 services:
+  postgres:
+    container_name: postgres # Custom name for the PostgreSQL container
+    image: postgres:latest # The latest PostgreSQL image from Docker Hub
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persistent data volume for PostgreSQL
+    environment:
+      POSTGRES_USER: your_username # Replace with a strong username
+      POSTGRES_PASSWORD: your_password # Replace with a strong password
+      POSTGRES_DB: your_database # Name of the database to create by default, optional
+    ports:
+      - "5432:5432" # Exposes PostgreSQL's default port 5432 on the host
+
+  networks:
+    quipubase-network:
+      driver: bridge
+
   quipubase:
     container_name: quipubase # Good for easy identification
     build:
@@ -17,7 +33,7 @@ services:
     networks:
       - quipubase-network # Connects 'quipubase' to the shared network.
     environment:
-      env-file: .env # This line is incorrect. It should be `env_file: .env`.
+      env_file: .env # This line is incorrect. It should be `env_file: .env`.
                      # Also, ensure your .env file is structured correctly (KEY=VALUE).
 
   proxy:
@@ -33,3 +49,7 @@ services:
 networks:
   quipubase-network:
     driver: bridge # Defines a custom bridge network for internal communication.
+
+
+volumes:
+  postgres_data: # Defines a volume for PostgreSQL data persistence outside of the container

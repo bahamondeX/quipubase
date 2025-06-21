@@ -1,44 +1,46 @@
 import typing as tp
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from groq import AsyncGroq
+
+ai = AsyncGroq()
+
+MAPPING: dict[str, str] = {
+    "llama-3.3-70b-versatile": "versatile",
+    "llama-3.1-8b-instant": "instant",
+    "meta-llama/llama-4-scout-17b-16e-instruct": "scout",
+    "meta-llama/llama-4-maverick-17b-128e-instruct": "maverick",
+}
+
+REVERSE_MAPPING = {v: k for k, v in MAPPING.items()}
 
 
 def route():
     app = APIRouter(prefix="/models", tags=["models"])
 
     @app.get("")
-    def _() -> dict[str, tp.Any]:
+    async def list_models():
+        response = await ai.models.list()
+        filtered = []
+
+        for model in response.data:
+            if model.id in MAPPING:
+                model.id = MAPPING[model.id]  # replace ID with alias
+                filtered.append(model)
+
         return {
-            "data": [
-                {
-                    "id": id,
-                    "created": 1693721698,
-                    "object": "model",
-                    "owned_by": "Google",
-                    "active": True,
-                    "context_window": 1000000,
-                    "public_apps": None,
-                    "max_completion_tokens": 65_536,
-                }
-                for id in [
-                    "gemini-2.5-flash-preview-05-20",
-                    "gemini-2.5-pro-preview-06-05",
-                ]
-            ],
             "object": "list",
+            "data": [m.model_dump(exclude_none=True) for m in filtered],
         }
 
     @app.get("/{model}")
-    def _(model: str) -> dict[str, tp.Any]:
-        return {
-            "id": model,
-            "created": 1693721698,
-            "object": "model",
-            "owned_by": "Google",
-            "active": True,
-            "context_window": 1000000,
-            "public_apps": None,
-            "max_completion_tokens": 65_536,
-        }
+    async def get_model(model: str):
+        original_id = REVERSE_MAPPING.get(model)
+        if not original_id:
+            raise HTTPException(status_code=404, detail="Model not found")
+
+        response = await ai.models.retrieve(model=original_id)
+        response.id = MAPPING[original_id]
+        return response.model_dump(exclude_none=True)
 
     return app

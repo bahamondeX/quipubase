@@ -1,0 +1,355 @@
+#!/usr/bin/env python3
+import http.client
+import json
+import logging
+import os
+import ssl
+import threading
+import typing as tp
+from dataclasses import asdict, dataclass, field
+from urllib.parse import quote_plus
+
+
+# --- Logger setup ---
+def get_logger(name: str = __name__) -> logging.Logger:
+    logger_ = logging.getLogger(name)
+    if logger_.handlers:
+        return logger_
+    
+    logger_.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        '{"timestamp":"%(asctime)s","level":"%(levelname)s","name":"%(name)s","message":"%(message)s"}'
+    )
+    handler.setFormatter(formatter)
+    logger_.addHandler(handler)
+    return logger_
+
+logger = get_logger()
+
+# --- Exceptions ---
+@dataclass
+class HttpException(Exception):
+    content: str = "Internal Server Error"
+    status: int = 500
+
+    def dict(self):
+        return asdict(self)
+
+    def json(self):
+        return json.dumps(self.dict())
+
+# --- Response with better resource management ---
+@dataclass
+class Response:
+    status: int
+    headers: dict[str, str]
+    res: tp.Optional[http.client.HTTPResponse] = field(default=None, repr=False)
+    _content: tp.Optional[bytes] = field(default=None, repr=False)
+    _closed: bool = field(default=False, init=False)
+
+    @classmethod
+    def from_http_response(cls, response: http.client.HTTPResponse) -> "Response":
+        headers = dict(response.getheaders())
+        content_type = headers.get("content-type", "").lower()
+        
+        is_stream = (
+            response.chunked or
+            "text/event-stream" in content_type or
+            "application/octet-stream" in content_type or
+            headers.get("transfer-encoding", "").lower() == "chunked"
+        )
+        
+        if is_stream:
+            return cls(status=response.status, headers=headers, res=response)
+        
+        content = response.read()
+        response.close()
+        return cls(status=response.status, headers=headers, _content=content, _closed=True)
+
+    def content(self) -> bytes:
+        if self._content is not None:
+            return self._content
+        if self.res and not self._closed:
+            self._content = b"".join(self.iter_bytes())
+            self.close()
+            return self._content
+        raise ValueError("No content available")
+
+    def text(self, encoding: str = "utf-8") -> str:
+        return self.content().decode(encoding)
+
+    def json(self) -> tp.Any:
+        return json.loads(self.text())
+
+    def iter_bytes(self, chunk_size: int = 8192) -> tp.Iterator[bytes]:
+        if not self.res or self._closed:
+            raise ValueError("Not a stream or already closed")
+        
+        try:
+            while True:
+                chunk = self.res.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            self.close()
+
+    def iter_lines(self) -> tp.Iterator[bytes]:
+        if not self.res or self._closed:
+            raise ValueError("Not a stream or already closed")
+        
+        try:
+            while True:
+                line = self.res.readline()
+                if not line:
+                    break
+                yield line.rstrip(b'\r\n')
+        finally:
+            self.close()
+
+    def iter_events(self) -> tp.Iterator[str]:
+        for line in self.iter_lines():
+            if not line:
+                continue
+            
+            try:
+                text = line.decode("utf-8")
+                if not text.startswith("data: "):
+                    continue
+                
+                content = text[6:]  # Remove "data: "
+                if content == "[DONE]":
+                    break
+                
+                yield content
+            except UnicodeDecodeError:
+                logger.warning(f"Failed to decode line: {line[:50]}...")
+                continue
+
+    def close(self):
+        if self.res and not self._closed:
+            try:
+                self.res.close()
+            except:
+                pass
+            finally:
+                self._closed = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+# --- Thread-safe HTTP client ---
+@dataclass
+class HttpClient:
+    host: str
+    port: int = 443
+    headers: dict[str, str] = field(default_factory=dict)
+    use_https: bool = True
+    timeout: float = 30.0
+    _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
+
+    def _create_connection(self) -> http.client.HTTPConnection:
+        if self.use_https:
+            conn = http.client.HTTPSConnection(
+                self.host, 
+                self.port, 
+                timeout=self.timeout,
+                context=ssl.create_default_context()
+            )
+        else:
+            conn = http.client.HTTPConnection(self.host, self.port, timeout=self.timeout)
+        return conn
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        headers: tp.Optional[dict[str, str]] = None,
+        body: tp.Optional[tp.Union[dict, str, bytes]] = None,
+    ) -> Response:
+        with self._lock:
+            final_headers = {**self.headers, **(headers or {})}
+            
+            # Prepare body
+            if isinstance(body, dict):
+                body_data = json.dumps(body).encode('utf-8')
+                final_headers.setdefault("Content-Type", "application/json")
+            elif isinstance(body, str):
+                body_data = body.encode('utf-8')
+            elif isinstance(body, bytes):
+                body_data = body
+            else:
+                body_data = None
+
+            if body_data:
+                final_headers["Content-Length"] = str(len(body_data))
+
+            conn = self._create_connection()
+            try:
+                conn.request(method, quote_plus(path, safe="/?&="), body_data, final_headers)
+                response = conn.getresponse()
+                return Response.from_http_response(response)
+            except Exception as e:
+                conn.close()
+                logger.error(f"HTTP request failed: {e}")
+                raise HttpException(content=str(e), status=500)
+
+# --- Groq client with better error handling ---
+@dataclass
+class GroqChatClient:
+    api_key: str
+    model: str = "llama-3.3-70b-versatile"
+    max_tokens: int = 4096
+    temperature: float = 0.7
+    max_history: int = 20
+    http: HttpClient = field(init=False)
+    messages: list[dict[str, str]] = field(default_factory=list)
+
+    def __post_init__(self):
+        self.http = HttpClient(
+            host="api.groq.com",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "groq-python-client/1.0"
+            }
+        )
+
+    def _manage_history(self):
+        if len(self.messages) > self.max_history:
+            # Keep system message if exists, remove oldest user/assistant pairs
+            system_msgs = [msg for msg in self.messages if msg["role"] == "system"]
+            other_msgs = [msg for msg in self.messages if msg["role"] != "system"]
+            
+            # Remove oldest messages but keep pairs
+            while len(other_msgs) > self.max_history - len(system_msgs):
+                other_msgs.pop(0)
+            
+            self.messages = system_msgs + other_msgs
+
+    def set_system_message(self, content: str):
+        # Remove existing system message
+        self.messages = [msg for msg in self.messages if msg["role"] != "system"]
+        # Add new system message at the beginning
+        self.messages.insert(0, {"role": "system", "content": content})
+
+    def chat(self, prompt: str, stream: bool = True) -> tp.Union[str, tp.Iterator[str]]:
+        self.messages.append({"role": "user", "content": prompt})
+        self._manage_history()
+
+        payload = {
+            "model": self.model,
+            "messages": self.messages,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            "stream": stream
+        }
+
+        try:
+            response = self.http.request("POST", "/openai/v1/chat/completions", body=payload)
+            
+            if response.status != 200:
+                error_msg = f"API Error {response.status}: {response.text()}"
+                logger.error(error_msg)
+                raise HttpException(content=error_msg, status=response.status)
+
+            if stream:
+                return self._process_stream(response)
+            else:
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+                self.messages.append({"role": "assistant", "content": content})
+                return content
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            raise HttpException(content="Invalid JSON response", status=502)
+
+    def _process_stream(self, response: Response) -> tp.Iterator[str]:
+        assistant_reply = ""
+        try:
+            for chunk_data in response.iter_events():
+                if not chunk_data.strip():
+                    continue
+                
+                try:
+                    chunk = json.loads(chunk_data)
+                    delta = chunk.get("choices", [{}])[0].get("delta", {})
+                    content = delta.get("content")
+                    
+                    if content:
+                        yield content
+                        assistant_reply += content
+                        
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse chunk: {chunk_data[:100]}...")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Stream processing error: {e}")
+            if not assistant_reply:
+                raise HttpException(content="Stream processing failed", status=500)
+        finally:
+            if assistant_reply:
+                self.messages.append({"role": "assistant", "content": assistant_reply})
+            response.close()
+
+    def clear_history(self):
+        system_msgs = [msg for msg in self.messages if msg["role"] == "system"]
+        self.messages = system_msgs
+
+# --- CLI with better UX ---
+def main():
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        print("❌ GROQ_API_KEY environment variable not set")
+        return 1
+
+    client = GroqChatClient(api_key=api_key)
+    
+    print("🤖 Groq Chat Client")
+    print("Commands: /clear (clear history), /system <msg> (set system message), /quit")
+    print("-" * 50)
+
+    while True:
+        try:
+            user_input = input("\n👤 You: ").strip()
+            
+            if user_input.lower() in ['/quit', '/exit']:
+                break
+            elif user_input.lower() == '/clear':
+                client.clear_history()
+                print("🗑️  History cleared")
+                continue
+            elif user_input.startswith('/system '):
+                system_msg = user_input[8:]
+                client.set_system_message(system_msg)
+                print(f"⚙️  System message set: {system_msg}")
+                continue
+            elif not user_input:
+                continue
+
+            print("🤖 Assistant: ", end="", flush=True)
+            
+            try:
+                for chunk in client.chat(user_input):
+                    print(chunk, end="", flush=True)
+                print()
+            except HttpException as e:
+                print(f"\n❌ Error: {e.content}")
+            except KeyboardInterrupt:
+                print("\n⏹️  Interrupted")
+                
+        except (KeyboardInterrupt, EOFError):
+            break
+
+    print("\n👋 Goodbye!")
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())
