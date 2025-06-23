@@ -31,7 +31,7 @@ class ChatCompletion(BaseModel):
         description="The tools that the model can utilize during the research.",
     )
     tool_choice: ChatCompletionToolChoiceOptionParam = Field(default="auto")
-    stream: bool = Field(default=True)
+    stream: bool = Field(default=False)
     max_completion_tokens: int = Field(
         default=8192,
         description="The maximum number of tokens to generate in the research run.",

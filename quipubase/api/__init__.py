@@ -1,9 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-
 from ..lib import setup
 from .audio import route as audio_routes
-from .auth import route as auth_routes
 from .chat import route as chat_routes
 from .collections import Collection, JsonSchemaModel, QuipubaseRequest
 from .collections import route as collections_routes
@@ -42,7 +40,6 @@ def create_app():
     )
     for r in (
         audio_routes,
-        auth_routes,
         collections_routes,
         chat_routes,
         objects_routes,
